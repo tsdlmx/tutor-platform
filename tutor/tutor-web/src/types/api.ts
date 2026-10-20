@@ -358,19 +358,23 @@ export interface OperLog {
 }
 
 export interface ServerInfo {
-  cpu?: { cpuNum: number; total: number; sys: number; used: number; wait: number; free: number };
+  cpu?: { cpuNum: number; used: number; sys: number; user?: number; wait: number; free: number };
   mem?: { total: number; used: number; free: number; usage: number };
-  jvm?: {
-    total: number;
-    max: number;
-    free: number;
-    version: string;
-    home: string;
+  /** Go 服务的进程与运行时指标（替代原 JVM 区块） */
+  runtime?: {
     name: string;
+    version: string;
     startTime: string;
     runTime: string;
-    usage: number;
-    inputArgs: string;
+    goroutines: number;
+    gcCount: number;
+    heapTotal: number;
+    heapUsed: number;
+    heapFree: number;
+    heapUsage: number;
+    home: string;
+    os: string;
+    arch: string;
   };
   sys?: {
     computerName: string;
@@ -379,6 +383,8 @@ export interface ServerInfo {
     osName: string;
     osArch: string;
   };
+  /** 数据库连接池状态 */
+  database?: { open: number; inUse: number; idle: number; waiting: number; maxOpen: number };
   sysFiles?: { dirName: string; sysTypeName: string; typeName: string; total: string; free: string; used: string; usage: number }[];
 }
 

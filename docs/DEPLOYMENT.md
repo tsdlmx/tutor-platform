@@ -150,4 +150,4 @@ COPY (SELECT * FROM sys_login_audit WHERE created_at < now() - interval '6 month
 
 - 仓库没有 systemd/容器编排文件；`bin-linux` 脚本目前只拉起 MySQL、Redis、Java 与前端。
 - `vite preview` 不是加固的生产入口：没有 HTTP/2、连接限流与细粒度访问控制，建议上线前补 nginx 配置（TLS1.2+、HSTS、静态资源缓存、`/web-api`、`/admin-api` 转 Go）。
-- 服务监控页仍读 Java（`/monitor/server`、`/monitor/cache`），切换后需要改为 Go 运行时指标。
+- 服务监控页已由 Go 提供（宿主机指标 + Go 运行时 + 数据库连接池）；Java 的缓存监控接口没有 React 页面调用，未迁移。

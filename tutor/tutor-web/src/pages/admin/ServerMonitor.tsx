@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Activity, Cpu, HardDrive, MemoryStick, RefreshCw, Server, Terminal } from 'lucide-react';
 import * as monitorApi from '@/api/monitor';
-import { getCompat } from '@/lib/httpCompat';
 import type { ServerInfo } from '@/types/api';
 import {
   Badge,
@@ -67,11 +66,7 @@ export default function ServerMonitor() {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      let data = await monitorApi.getServerInfo();
-      // 兜底：RuoYi 原生 /monitor/server 平铺返回 cpu/mem/jvm/sys
-      if (!data || (!data.cpu && !data.mem && !data.jvm)) {
-        data = await getCompat<ServerInfo>('/monitor/server');
-      }
+      const data = await monitorApi.getServerInfo();
       setInfo(data ?? null);
       setUpdatedAt(new Date().toLocaleTimeString('zh-CN'));
     } catch (e) {
@@ -89,14 +84,15 @@ export default function ServerMonitor() {
 
   const cpu = info?.cpu;
   const mem = info?.mem;
-  const jvm = info?.jvm;
+  const rt = info?.runtime;
+  const db = info?.database;
   const sys = info?.sys;
 
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         title="服务监控"
-        description="CPU、内存、JVM 与磁盘的实时状态，每 15 秒自动刷新"
+        description="CPU、内存、进程运行时、数据库连接池与磁盘的实时状态，每 15 秒自动刷新"
         className="[&_h1]:text-base"
       >
         {updatedAt ? (
@@ -172,25 +168,27 @@ export default function ServerMonitor() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Activity className="h-3.5 w-3.5" />
-                JVM
+                进程与运行时
               </CardTitle>
-              <CardDescription>{jvm?.name ?? '—'}</CardDescription>
+              <CardDescription>{rt?.version ?? '—'}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              {loading && !jvm ? (
+              {loading && !rt ? (
                 <Skeleton className="h-24 w-full" />
               ) : (
                 <>
-                  <Meter value={jvm?.usage ?? 0} label="JVM 使用率" />
+                  <Meter value={rt?.heapUsage ?? 0} label="堆内存使用率" />
                   <div className="grid grid-cols-2 gap-x-4">
-                    <KV label="JDK 版本" value={jvm?.version} />
-                    <KV label="启动时间" value={jvm?.startTime} />
-                    <KV label="总内存" value={jvm ? `${jvm.total} M` : '—'} />
-                    <KV label="最大可用" value={jvm ? `${jvm.max} M` : '—'} />
-                    <KV label="空闲内存" value={jvm ? `${jvm.free} M` : '—'} />
-                    <KV label="运行时长" value={jvm?.runTime} />
+                    <KV label="启动时间" value={rt?.startTime} />
+                    <KV label="运行时长" value={rt?.runTime} />
+                    <KV label="协程数" value={rt?.goroutines} />
+                    <KV label="GC 次数" value={rt?.gcCount} />
+                    <KV label="堆总量" value={rt ? `${rt.heapTotal} M` : '—'} />
+                    <KV label="堆已用" value={rt ? `${rt.heapUsed} M` : '—'} />
+                    <KV label="堆空闲" value={rt ? `${rt.heapFree} M` : '—'} />
+                    <KV label="目标平台" value={rt ? `${rt.os}/${rt.arch}` : '—'} />
                   </div>
-                  <KV label="JDK 路径" value={<span className="font-mono text-2xs">{jvm?.home ?? '—'}</span>} />
+                  <KV label="可执行文件" value={<span className="font-mono text-2xs">{rt?.home ?? '—'}</span>} />
                 </>
               )}
             </CardContent>
@@ -269,19 +267,27 @@ export default function ServerMonitor() {
             </CardContent>
           </Card>
 
-          {jvm?.inputArgs ? (
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Terminal className="h-3.5 w-3.5" />
-                  运行参数
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <pre className="max-h-40 overflow-auto rounded-lg bg-muted/50 p-3 font-mono text-2xs leading-5">{jvm.inputArgs}</pre>
-              </CardContent>
-            </Card>
-          ) : null}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Terminal className="h-3.5 w-3.5" />
+                数据库连接池
+              </CardTitle>
+              <CardDescription>{db ? `上限 ${db.maxOpen} 个连接` : '—'}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {loading && !db ? (
+                <Skeleton className="h-16 w-full" />
+              ) : (
+                <div className="grid grid-cols-2 gap-x-4">
+                  <KV label="已打开" value={db?.open} />
+                  <KV label="使用中" value={db?.inUse} />
+                  <KV label="空闲" value={db?.idle} />
+                  <KV label="等待次数" value={db?.waiting} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

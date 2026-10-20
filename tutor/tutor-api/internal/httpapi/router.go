@@ -65,6 +65,7 @@ func New(logger *slog.Logger, db *gorm.DB, redisClient *redis.Client, jwtSecret 
 	mux.HandleFunc("GET /system/wxUser/{userID}", a.adminAuth("system:wxUser:query", a.getAdminWxUser))
 	mux.HandleFunc("GET /monitor/operlog/list", a.adminAuth("monitor:operlog:list", a.listAdminOperationLogs))
 	mux.HandleFunc("GET /monitor/logininfor/list", a.adminAuth("monitor:logininfor:list", a.listAdminLoginInfors))
+	mux.HandleFunc("GET /monitor/server", a.adminAuth("monitor:server:list", a.getAdminServerInfo))
 	mux.HandleFunc("GET /monitor/online/list", a.adminAuth("monitor:online:list", a.listAdminOnlineUsers))
 	mux.HandleFunc("GET /miniapp/auth/checkLogin", a.checkMiniappLogin)
 	mux.HandleFunc("POST /customer/auth/send-code", a.sendCode)

@@ -25,25 +25,7 @@ export function listOperLog(
   return requestPage<OperLog>({ url: '/monitor/operlog/list', method: 'get', params: query });
 }
 
-/** GET /monitor/server */
+/** GET /monitor/server —— Go 服务的宿主机与运行时指标 */
 export function getServerInfo() {
-  return requestData<ServerInfo>({ url: '/monitor/server', method: 'get' });
-}
-
-/** GET /monitor/cache —— 缓存概览 */
-export function getCacheInfo() {
-  return requestData<{
-    info?: Record<string, unknown>;
-    dbSize?: number;
-    commandStats?: { name: string; value: string }[];
-    memoryInfo?: { used_memory?: string; used_memory_human?: string; maxmemory_human?: string };
-  }>({ url: '/monitor/cache', method: 'get' });
-}
-
-/** GET /monitor/cache/getNames —— 缓存名称列表 */
-export function getCacheNames() {
-  return requestData<{ cacheName: string; remark: string }[]>({
-    url: '/monitor/cache/getNames',
-    method: 'get',
-  });
+  return requestData<ServerInfo>({ baseURL: '/admin-api', url: '/monitor/server', method: 'get' });
 }
