@@ -2,6 +2,7 @@
 **/target/
 **/node_modules/
 **/dist/
+**/*.tsbuildinfo
 # Local runtime data
 /bin-linux/data/
 /runtime/

@@ -10,22 +10,22 @@ export interface LoginBody {
 
 /** GET /captchaImage —— 无需 token */
 export function getCaptchaImage() {
-  return requestData<CaptchaImage>({ url: '/captchaImage', method: 'get' });
+  return requestData<CaptchaImage>({ baseURL: '/admin-api', url: '/captchaImage', method: 'get' });
 }
 
 /** POST /login */
 export function login(body: LoginBody) {
-  return requestData<{ token: string }>({ url: '/login', method: 'post', data: body });
+  return requestData<{ token: string }>({ baseURL: '/admin-api', url: '/login', method: 'post', data: body });
 }
 
 /** POST /logout */
 export function logout() {
-  return requestOk({ url: '/logout', method: 'post' });
+  return requestOk({ baseURL: '/admin-api', url: '/logout', method: 'post' });
 }
 
 /** GET /getInfo —— 返回 {user, roles, permissions} */
 export function getInfo() {
-  return requestData<LoginInfo>({ url: '/getInfo', method: 'get' });
+  return requestData<LoginInfo>({ baseURL: '/admin-api', url: '/getInfo', method: 'get' });
 }
 
 /** GET /system/user/profile */

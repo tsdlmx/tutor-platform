@@ -2,9 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { GraduationCap, KeyRound, Lock, RefreshCw, ShieldCheck, Smartphone, User } from 'lucide-react';
 import * as authApi from '@/api/auth';
-import { getCompat } from '@/lib/httpCompat';
 import { APP_NAME, APP_SUBTITLE, HOME_PATH, resolveAssetUrl } from '@/lib/constants';
-import type { CaptchaImage } from '@/types/api';
 import { useAuth } from '@/store/auth';
 import { Badge, Button, Field, Input, Spinner, toast } from '@/components/ui';
 import { ThemeToggle } from '@/components/common';
@@ -33,11 +31,7 @@ export default function Login() {
     setCaptchaLoading(true);
     setCaptchaError(null);
     try {
-      let res = await authApi.getCaptchaImage();
-      // 兜底：RuoYi 原生 /captchaImage 平铺返回 { code, img, uuid, captchaEnabled }
-      if (!res || (!res.img && !res.uuid)) {
-        res = await getCompat<CaptchaImage>('/captchaImage');
-      }
+      const res = await authApi.getCaptchaImage();
       setCaptchaEnabled(res?.captchaEnabled !== false);
       setUuid(res?.uuid ?? '');
       setCaptchaImg(res?.img ?? '');

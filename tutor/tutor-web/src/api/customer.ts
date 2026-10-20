@@ -192,7 +192,7 @@ function handleUnauthorized(msg?: string): CustomerApiError {
  * ------------------------------------------------------------------ */
 
 const customerHttp: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/dev-api',
+  baseURL: import.meta.env.VITE_CUSTOMER_API_BASE_URL || '/web-api',
   timeout: 20000,
   headers: { 'Content-Type': 'application/json;charset=utf-8' },
 });

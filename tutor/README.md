@@ -34,6 +34,18 @@
 - 📊 **数据可视化** - 完善的数据统计和图表展示
 - 🔒 **权限管理系统** - 基于RBAC的完整权限控制
 
+## 当前重构路线（2026-10-20）
+
+本项目按业务模块从旧 Java + MySQL 逐步迁移到 Go + GORM + PostgreSQL，保留现有 Web 页面和交互，并保留旧数据库作为迁移来源。
+
+- tutor-web 的 React、TypeScript、Vite 页面保持不变；客户 Web API 使用 /web-api，已迁移账号、需求/申请、教师资料、帖子和公开教师目录。
+- 第一批管理 API 使用 /admin-api，已迁移管理员验证码、登录、会话信息、退出，以及系统用户列表/角色列表（按 legacy 部门数据范围过滤）、在线会话列表、教师审核、帖子审核、客户账号查询/状态操作和微信用户历史数据只读查询；操作日志列表的 Go 接口已就绪，页面暂留 Java 直到最终数据切换。管理员个人中心、强制下线和其他未迁移的系统、监控及财务接口仍由 Java 的 /dev-api 提供。
+- 管理员认证由 Go 自身负责：签发 HS512 令牌（login_user_key + sub），会话存 Redis 的 login_tokens:&lt;id&gt;（24 小时，剩余不足 20 分钟时自动续期），每个请求都从 PostgreSQL 重新加载账号状态、角色和菜单权限，因此停用账号或收回角色立即生效。凭据仍是 sys_user_auth 中的 BCrypt 哈希，验证码开关与登录黑名单取自 sys_admin_auth_config，未配置时保持验证码必填。Go 和 Java 过渡期仍需共用 JWT 密钥与 Redis 实例/逻辑库，否则仍由 Java 提供的管理页面会拒绝 Go 签发的令牌。已迁移的成功写操作与审计行在同一 PostgreSQL 事务提交；Go 操作日志列表接口只返回安全元数据。现有操作日志页面暂留 Java，避免迁移期间漏看仍由 Java 写入的记录；最终切换前需完成 MySQL 日志快照。
+- uni-app 页面保留；尚未迁移的小程序 API 继续由 Java 提供，公开教师目录和登录状态检查已由 Go 提供。
+- cmd/import-legacy 默认只读预检；只有显式传 --apply 才写入空 PostgreSQL 目标表。它迁移客户 Web、公开教师、最小 RBAC 快照、管理员 BCrypt 哈希（仅进入独立 sys_user_auth 表）、操作日志安全元数据、系统用户部门数据范围和微信用户历史数据，不复制客户会话、日志请求参数、返回体或异常详情；有效的管理员会话继续由共享 Redis 校验。尚未连接或导入任何数据库。
+
+实现决策见 docs/adr/0001-web-first-go-gorm.md 与 docs/adr/0002-native-go-admin-authentication.md，Go 服务配置、迁移和导入说明见 tutor-api/README.md。
+
 ---
 
 ## 🛠️ 技术栈

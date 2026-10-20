@@ -3,12 +3,13 @@ import type { TutorInfo, TutorQuery } from '@/types/api';
 
 /** GET /system/tutorInfo/list -> {code,total,rows} */
 export function listTutor(query: TutorQuery) {
-  return requestPage<TutorInfo>({ url: '/system/tutorInfo/list', method: 'get', params: query });
+  return requestPage<TutorInfo>({ baseURL: '/admin-api',
+    url: '/system/tutorInfo/list', method: 'get', params: query });
 }
 
 /** GET /system/tutorInfo/{tutorId} */
 export function getTutor(tutorId: number) {
-  return requestData<TutorInfo>({ url: `/system/tutorInfo/${tutorId}`, method: 'get' });
+  return requestData<TutorInfo>({ baseURL: '/admin-api', url: `/system/tutorInfo/${tutorId}`, method: 'get' });
 }
 
 export interface AuditPayload {
@@ -20,7 +21,8 @@ export interface AuditPayload {
 
 /** PUT /system/tutorInfo/audit —— 核心审核接口 */
 export function auditTutor(payload: AuditPayload) {
-  return requestOk({ url: '/system/tutorInfo/audit', method: 'put', data: payload });
+  return requestOk({ baseURL: '/admin-api',
+    url: '/system/tutorInfo/audit', method: 'put', data: payload });
 }
 
 /** PUT /system/tutorInfo */
@@ -31,5 +33,5 @@ export function updateTutor(data: Partial<TutorInfo>) {
 /** DELETE /system/tutorInfo/{ids} */
 export function deleteTutor(ids: number | number[]) {
   const path = Array.isArray(ids) ? ids.join(',') : String(ids);
-  return requestOk({ url: `/system/tutorInfo/${path}`, method: 'delete' });
+  return requestOk({ baseURL: '/admin-api', url: `/system/tutorInfo/${path}`, method: 'delete' });
 }

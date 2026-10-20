@@ -82,7 +82,7 @@ corepack pnpm install --frozen-lockfile
 corepack pnpm dev -- --host 127.0.0.1 --port 5173
 ~~~
 
-开发服务器默认通过 /dev-api 将请求代理到 http://127.0.0.1:12501。本地访问地址为 http://127.0.0.1:5173。
+开发服务器把 `/dev-api` 代理到仍在使用的 Java 服务（`VITE_PROXY_TARGET`），把 `/web-api`（客户 Web）和 `/admin-api`（已迁移的管理接口与管理员登录）代理到 Go 服务（`VITE_WEB_API_PROXY_TARGET`、`VITE_ADMIN_API_PROXY_TARGET`）。三个目标默认都指向 127.0.0.1:12501，切分部署时需要分别指定。本地访问地址为 http://127.0.0.1:5173。
 
 构建前端：
 
@@ -97,6 +97,19 @@ corepack pnpm preview
 ~~~
 
 预览服务器默认使用 4173 端口。
+
+## 迁移中的 Go Web API
+
+Web 后端正在按模块从 Java + MySQL 迁移到 Go + GORM + PostgreSQL，前端页面保持不变。Go 服务位于 `tutor/tutor-api`，需要 PostgreSQL 与 Redis：
+
+~~~powershell
+Set-Location D:/tutor-platform/tutor/tutor-api
+$env:DATABASE_DSN = 'postgres://...'   # 同时需要 JWT_SECRET、REDIS_ADDR
+go run ./cmd/migrate
+go run ./cmd/server
+~~~
+
+配置项、已迁移路由、管理员认证流程、数据库与旧 MySQL 数据导入流程见 [tutor/tutor-api/README.md](tutor/tutor-api/README.md)；迁移决策见 `docs/adr`。
 
 ## 当前限制
 

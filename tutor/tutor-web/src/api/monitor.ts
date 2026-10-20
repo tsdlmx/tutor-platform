@@ -3,7 +3,7 @@ import type { LoginInfor, OnlineUser, OperLog, PageQuery, ServerInfo } from '@/t
 
 /** GET /monitor/online/list */
 export function listOnline(query: PageQuery & { userName?: string; ipaddr?: string } = {}) {
-  return requestPage<OnlineUser>({ url: '/monitor/online/list', method: 'get', params: query });
+  return requestPage<OnlineUser>({ baseURL: '/admin-api', url: '/monitor/online/list', method: 'get', params: query });
 }
 
 /** DELETE /monitor/online/{tokenId} —— 强退 */

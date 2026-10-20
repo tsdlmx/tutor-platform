@@ -47,6 +47,10 @@ export default defineConfig(({ mode }) => {
   const apiBase = env.VITE_API_BASE_URL || '/dev-api';
   const proxyPrefix = env.VITE_PROXY_PREFIX || '/dev-api';
   const proxyTarget = env.VITE_PROXY_TARGET || 'http://localhost:18080';
+  const webApiProxyPrefix = env.VITE_WEB_API_PROXY_PREFIX || '/web-api';
+  const webApiProxyTarget = env.VITE_WEB_API_PROXY_TARGET || 'http://127.0.0.1:12501';
+  const adminApiProxyPrefix = env.VITE_ADMIN_API_PROXY_PREFIX || '/admin-api';
+  const adminApiProxyTarget = env.VITE_ADMIN_API_PROXY_TARGET || 'http://127.0.0.1:12501';
 
   /*
     TLS 开关（默认关闭 = 走 HTTP）：
@@ -71,14 +75,24 @@ export default defineConfig(({ mode }) => {
 
   // 开发（vite dev）和预览（vite preview）用同一套代理规则，避免两处不一致
   const proxy = {
-    // /dev-api/system/tutorInfo/list -> http://localhost:8080/system/tutorInfo/list
     [proxyPrefix]: {
       target: proxyTarget,
       changeOrigin: true,
-      // 把真实客户端 IP 透给后端（X-Forwarded-For）。
-      // 不加这一行，后端看到的永远是 127.0.0.1，按 IP 限流就会把所有人算成同一个 IP。
       xfwd: true,
       rewrite: (p: string) => p.replace(new RegExp(`^${proxyPrefix}`), ''),
+    },
+    // Customer and migrated admin APIs run on Go; remaining admin routes stay on Java.
+    [webApiProxyPrefix]: {
+      target: webApiProxyTarget,
+      changeOrigin: true,
+      xfwd: true,
+      rewrite: (p: string) => p.replace(new RegExp(`^${webApiProxyPrefix}`), ''),
+    },
+    [adminApiProxyPrefix]: {
+      target: adminApiProxyTarget,
+      changeOrigin: true,
+      xfwd: true,
+      rewrite: (p: string) => p.replace(new RegExp(`^${adminApiProxyPrefix}`), ''),
     },
   };
 

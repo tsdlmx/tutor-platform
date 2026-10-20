@@ -11,7 +11,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import * as authApi from '@/api/auth';
 import { setUnauthorizedHandler } from '@/api/request';
-import { getCompat, postCompat } from '@/lib/httpCompat';
 import { tokenStore } from '@/lib/storage';
 import { HOME_PATH } from '@/lib/constants';
 import { toast } from '@/components/ui/use-toast';
@@ -40,15 +39,11 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const EMPTY = { user: null as SysUser | null, roles: [] as string[], permissions: [] as string[] };
 
 /**
- * 取回登录 token：
- * 主路径 authApi.login()（解包 .data）；
- * 兜底 RuoYi 原生 /login 返回 { code, msg, token }（字段平铺，无 data 包装）。
+ * 取回登录 token：`/admin-api/login` 返回 {code,msg,data:{token}}。
  */
 async function resolveToken(body: authApi.LoginBody): Promise<string | undefined> {
   const res = await authApi.login(body);
-  if (res?.token) return res.token;
-  const flat = await postCompat<{ token?: string }>('/login', body);
-  return flat?.token;
+  return res?.token;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -79,11 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     // 主路径：authApi.getInfo()（解包 .data）
     const info = await authApi.getInfo();
-    let normalized: LoginInfo | undefined = info;
     // 兜底：部分 RuoYi 部署把 user/roles/permissions 平铺在根节点上
-    if (!normalized?.user) {
-      normalized = await getCompat<LoginInfo>('/getInfo');
-    }
+    const normalized: LoginInfo = info;
     if (!mounted.current) return;
     setUser(normalized?.user ?? null);
     setRoles(Array.isArray(normalized?.roles) ? normalized.roles : []);

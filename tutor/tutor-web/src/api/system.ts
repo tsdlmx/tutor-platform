@@ -14,7 +14,7 @@ import type {
 
 /* ----------------------------- 系统用户 ----------------------------- */
 export function listUser(query: PageQuery & { userName?: string; phonenumber?: string; status?: string; deptId?: number }) {
-  return requestPage<SysUser>({ url: '/system/user/list', method: 'get', params: query });
+  return requestPage<SysUser>({ baseURL: '/admin-api', url: '/system/user/list', method: 'get', params: query });
 }
 export function getUser(userId: number) {
   return requestData<{ data: SysUser; roles: SysRole[]; posts: SysPost[] }>({
@@ -25,7 +25,7 @@ export function getUser(userId: number) {
 
 /* ------------------------------- 角色 ------------------------------- */
 export function listRole(query: PageQuery & { roleName?: string; roleKey?: string; status?: string }) {
-  return requestPage<SysRole>({ url: '/system/role/list', method: 'get', params: query });
+  return requestPage<SysRole>({ baseURL: '/admin-api', url: '/system/role/list', method: 'get', params: query });
 }
 
 /* ------------------------------- 菜单 ------------------------------- */

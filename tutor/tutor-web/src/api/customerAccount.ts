@@ -13,6 +13,7 @@ import type { CustomerAccountQuery, CustomerAccountRow } from '@/types/api';
  */
 export function listAccounts(query: CustomerAccountQuery) {
   return requestPage<CustomerAccountRow>({
+    baseURL: '/admin-api',
     url: '/system/customerAccount/list',
     method: 'get',
     params: query,
@@ -21,7 +22,7 @@ export function listAccounts(query: CustomerAccountQuery) {
 
 export function getAccount(accountId: number) {
   return requestData<CustomerAccountRow>({
-    url: `/system/customerAccount/${accountId}`,
+    baseURL: '/admin-api', url: `/system/customerAccount/${accountId}`,
     method: 'get',
   });
 }
@@ -29,6 +30,7 @@ export function getAccount(accountId: number) {
 /** 启用 / 停用账号：status 0 正常，1 停用 */
 export function updateAccountStatus(accountId: number, status: '0' | '1') {
   return requestData<null>({
+    baseURL: '/admin-api',
     url: '/system/customerAccount/status',
     method: 'put',
     data: { accountId, status },

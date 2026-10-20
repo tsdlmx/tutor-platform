@@ -34,6 +34,7 @@ export interface AdminUserPostQuery {
 
 export function listPosts(query: AdminUserPostQuery = {}) {
   return requestPage<AdminUserPost>({
+    baseURL: '/admin-api',
     url: '/system/userPost/list',
     method: 'get',
     params: query,
@@ -41,12 +42,14 @@ export function listPosts(query: AdminUserPostQuery = {}) {
 }
 
 export function pendingCount() {
-  return requestData<number>({ url: '/system/userPost/pendingCount', method: 'get' });
+  return requestData<number>({ baseURL: '/admin-api',
+    url: '/system/userPost/pendingCount', method: 'get' });
 }
 
 /** 审核：auditStatus 1 通过 / 2 拒绝（可带拒绝理由） */
 export function auditPost(postId: number, auditStatus: '1' | '2', auditRemark?: string) {
   return requestData<string>({
+    baseURL: '/admin-api',
     url: '/system/userPost/audit',
     method: 'put',
     data: { postId, auditStatus, auditRemark: auditRemark ?? null },
