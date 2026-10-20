@@ -102,7 +102,7 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, 400, "请求参数格式不正确")
 		return
 	}
-	payload, err := a.identity.Login(r.Context(), body.Email, body.Password, clientIP(r, a.config.TrustedProxyCIDRs))
+	payload, err := a.identity.Login(r.Context(), body.Email, body.Password, clientIP(r, a.config.TrustedProxyCIDRs), safeUserAgent(r.UserAgent()))
 	if err != nil {
 		a.writeBusinessError(w, err)
 		return

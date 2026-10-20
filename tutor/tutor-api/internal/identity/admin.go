@@ -31,6 +31,8 @@ const (
 	superAdminUserID         = 1
 	superAdminRoleKey        = "admin"
 	allPermission            = "*:*:*"
+	adminLoginLockThreshold  = 5
+	adminLoginLockWindow     = 15 * time.Minute
 )
 
 // AdminPrincipal is the authenticated administrator attached to a request after
@@ -151,26 +153,57 @@ func (s *Service) adminAccountQuery() *gorm.DB {
 // caller must not log the password, the session identifier, or the token.
 func (s *Service) LoginAdmin(ctx context.Context, input AdminLoginInput) (string, *AdminPrincipal, error) {
 	username := strings.TrimSpace(input.Username)
+	lockSubject := input.ClientIP + "|" + strings.ToLower(username)
+	audit := func(result, reason string) {
+		s.recordLoginAudit(ctx, loginAuditEntry{
+			ActorType:  auditActorAdmin,
+			Identifier: maskIdentifier(username),
+			ClientIP:   input.ClientIP,
+			UserAgent:  input.UserAgent,
+			Result:     result,
+			Reason:     reason,
+		})
+	}
+	// rejectCredential counts a credential failure towards the lockout window.
+	rejectCredential := func(status int, message, reason string) (string, *AdminPrincipal, error) {
+		audit(auditResultFailure, reason)
+		if err := s.recordLoginFailure(ctx, "admin", lockSubject, adminLoginLockWindow); err != nil {
+			s.logger.Error("administrator lockout counter failed", "error_type", fmt.Sprintf("%T", err))
+		}
+		return "", nil, businessError(status, message)
+	}
+	// rejectAudited records the attempt without consuming lockout budget.
+	rejectAudited := func(status int, message, reason string) (string, *AdminPrincipal, error) {
+		audit(auditResultFailure, reason)
+		return "", nil, businessError(status, message)
+	}
+
 	if username == "" || input.Password == "" {
-		return "", nil, businessError(400, "用户名和密码不能为空")
+		return rejectAudited(400, "用户名和密码不能为空", reasonInvalidRequest)
 	}
 	if len(username) > 30 || len([]rune(input.Password)) < 5 || len(input.Password) > 20 {
-		return "", nil, businessError(400, "用户名或密码错误")
+		return rejectCredential(400, "用户名或密码错误", reasonInvalidCreds)
 	}
 
 	settings, err := s.adminAuthSettings(ctx)
 	if err != nil {
 		return "", nil, err
 	}
-	if err := s.verifyAdminCaptcha(ctx, settings, input); err != nil {
-		return "", nil, err
+	if reason, err := s.verifyAdminCaptcha(ctx, settings, input); err != nil {
+		return rejectAudited(400, err.Error(), reason)
 	}
 	if err := s.checkLoginBlacklist(settings[loginBlacklistConfigKey], input.ClientIP); err != nil {
+		return rejectAudited(403, "登录被拒绝，请联系管理员", reasonBlacklisted)
+	}
+	locked, err := s.loginLocked(ctx, "admin", lockSubject, adminLoginLockThreshold)
+	if err != nil {
 		return "", nil, err
 	}
-	limitKey := input.ClientIP + "|" + strings.ToLower(username)
-	if err := s.rateLimit(ctx, "admin-login", limitKey, adminLoginAttempts, adminLoginWindow); err != nil {
-		return "", nil, err
+	if locked {
+		return rejectAudited(429, "登录失败次数过多，账号已临时锁定，请稍后再试", reasonLocked)
+	}
+	if err := s.rateLimit(ctx, "admin-login", lockSubject, adminLoginAttempts, adminLoginWindow); err != nil {
+		return rejectAudited(429, "请求过于频繁，请稍后重试", reasonRateLimited)
 	}
 
 	var account adminAccountRow
@@ -181,16 +214,10 @@ func (s *Service) LoginAdmin(ctx context.Context, input AdminLoginInput) (string
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// Equalize the response time for unknown accounts.
 		_ = bcrypt.CompareHashAndPassword(s.dummyPasswordHash, bcryptInput(input.Password))
-		return "", nil, businessError(400, "用户名或密码错误")
+		return rejectCredential(400, "用户名或密码错误", reasonInvalidCreds)
 	}
 	if err != nil {
 		return "", nil, fmt.Errorf("load administrator account: %w", err)
-	}
-	if account.DelFlag != "0" {
-		return "", nil, businessError(400, "用户名或密码错误")
-	}
-	if account.Status != "0" {
-		return "", nil, businessError(403, "账号已停用，请联系管理员")
 	}
 
 	var credential struct {
@@ -204,7 +231,16 @@ func (s *Service) LoginAdmin(ctx context.Context, input AdminLoginInput) (string
 		return "", nil, fmt.Errorf("load administrator credential: %w", err)
 	}
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(credential.PasswordHash), bcryptInput(input.Password)) != nil {
-		return "", nil, businessError(400, "用户名或密码错误")
+		return rejectCredential(400, "用户名或密码错误", reasonInvalidCreds)
+	}
+	if account.DelFlag != "0" {
+		// A deleted account must not be distinguishable from a wrong password.
+		return rejectCredential(400, "用户名或密码错误", reasonAccountDeleted)
+	}
+	// The status is only disclosed once the password has been verified, so the
+	// response cannot be used to enumerate administrator accounts.
+	if account.Status != "0" {
+		return rejectAudited(403, "账号已停用，请联系管理员", reasonAccountDisabled)
 	}
 
 	principal, err := s.adminPrincipalFor(ctx, account.UserID)
@@ -254,6 +290,8 @@ func (s *Service) LoginAdmin(ctx context.Context, input AdminLoginInput) (string
 		Updates(map[string]any{"login_ip": input.ClientIP, "login_date": now}).Error; err != nil {
 		return "", nil, fmt.Errorf("record administrator login: %w", err)
 	}
+	s.clearLoginFailures(ctx, "admin", lockSubject)
+	audit(auditResultSuccess, "")
 	return token, principal, nil
 }
 
@@ -468,29 +506,29 @@ func (s *Service) adminAuthSettings(ctx context.Context) (map[string]string, err
 	return settings, nil
 }
 
-func (s *Service) verifyAdminCaptcha(ctx context.Context, settings map[string]string, input AdminLoginInput) error {
+func (s *Service) verifyAdminCaptcha(ctx context.Context, settings map[string]string, input AdminLoginInput) (string, error) {
 	if !captchaRequired(settings[captchaEnabledConfigKey]) {
-		return nil
+		return "", nil
 	}
 	captchaID := strings.TrimSpace(input.CaptchaID)
 	code := strings.TrimSpace(input.CaptchaCode)
 	if len(captchaID) != 32 || !isAdminHex(captchaID) || code == "" {
-		return businessError(400, "请输入验证码")
+		return reasonInvalidRequest, businessError(400, "请输入验证码")
 	}
 	key := adminCaptchaKeyPrefix + captchaID
 	saved, err := s.redis.Get(ctx, key).Result()
 	if errors.Is(err, redis.Nil) {
-		return businessError(400, "验证码已过期，请刷新后重试")
+		return reasonCaptchaExpired, businessError(400, "验证码已过期，请刷新后重试")
 	}
 	if err != nil {
-		return fmt.Errorf("read captcha: %w", err)
+		return reasonCaptchaExpired, fmt.Errorf("read captcha: %w", err)
 	}
 	// A captcha is single use regardless of the result.
 	_ = s.redis.Del(ctx, key).Err()
 	if !strings.EqualFold(saved, code) {
-		return businessError(400, "验证码不正确")
+		return reasonCaptchaInvalid, businessError(400, "验证码不正确")
 	}
-	return nil
+	return "", nil
 }
 
 // checkLoginBlacklist rejects administrators whose client IP is listed in the

@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"net"
 	"net/mail"
@@ -30,6 +31,9 @@ const (
 	roleStudent = "STUDENT"
 	codeTTL     = 5 * time.Minute
 	sessionTTL  = 24 * time.Hour
+
+	customerLoginLockThreshold = 10
+	customerLoginLockWindow    = 10 * time.Minute
 )
 
 type Error struct {
@@ -44,6 +48,7 @@ type Service struct {
 	redis             *redis.Client
 	secret            []byte
 	cfg               config.Config
+	logger            *slog.Logger
 	dummyPasswordHash []byte
 }
 
@@ -89,9 +94,12 @@ redis.call('DEL', KEYS[1], KEYS[2])
 return 1
 `)
 
-func New(db *gorm.DB, redisClient *redis.Client, secret []byte, cfg config.Config) *Service {
+func New(db *gorm.DB, redisClient *redis.Client, secret []byte, cfg config.Config, logger *slog.Logger) *Service {
 	dummyHash, _ := bcrypt.GenerateFromPassword([]byte("constant-time customer login check"), bcrypt.DefaultCost)
-	return &Service{db: db, redis: redisClient, secret: secret, cfg: cfg, dummyPasswordHash: dummyHash}
+	if logger == nil {
+		logger = slog.Default()
+	}
+	return &Service{db: db, redis: redisClient, secret: secret, cfg: cfg, logger: logger, dummyPasswordHash: dummyHash}
 }
 
 func (s *Service) SendCode(ctx context.Context, rawEmail, clientIP, purpose string) (map[string]any, error) {
@@ -189,27 +197,62 @@ func (s *Service) Register(ctx context.Context, email, password, nickname, code,
 	if err := s.db.WithContext(ctx).Create(&account).Error; err != nil {
 		return AuthPayload{}, fmt.Errorf("create customer account: %w", err)
 	}
+	s.recordLoginAudit(ctx, loginAuditEntry{
+		ActorType:  auditActorCustomer,
+		Identifier: maskIdentifier(email),
+		ClientIP:   clientIP,
+		Result:     auditResultSuccess,
+		Reason:     reasonAccountCreated,
+	})
 	return s.issueSession(ctx, account)
 }
 
-func (s *Service) Login(ctx context.Context, email, password, clientIP string) (AuthPayload, error) {
+func (s *Service) Login(ctx context.Context, email, password, clientIP, userAgent string) (AuthPayload, error) {
 	email = normalizeEmail(email)
+	lockSubject := clientIP + "|" + email
+	audit := func(result, reason string) {
+		s.recordLoginAudit(ctx, loginAuditEntry{
+			ActorType:  auditActorCustomer,
+			Identifier: maskIdentifier(email),
+			ClientIP:   clientIP,
+			UserAgent:  userAgent,
+			Result:     result,
+			Reason:     reason,
+		})
+	}
+	rejectCredential := func(reason string) (AuthPayload, error) {
+		audit(auditResultFailure, reason)
+		if err := s.recordLoginFailure(ctx, "customer", lockSubject, customerLoginLockWindow); err != nil {
+			s.logger.Error("customer lockout counter failed", "error_type", fmt.Sprintf("%T", err))
+		}
+		return AuthPayload{}, businessError(400, "邮箱或密码错误")
+	}
 	if err := s.rateLimit(ctx, "login", clientIP+":"+digestKey(email), 20, 10*time.Minute); err != nil {
+		audit(auditResultFailure, reasonRateLimited)
 		return AuthPayload{}, err
 	}
+	locked, err := s.loginLocked(ctx, "customer", lockSubject, customerLoginLockThreshold)
+	if err != nil {
+		return AuthPayload{}, err
+	}
+	if locked {
+		audit(auditResultFailure, reasonLocked)
+		return AuthPayload{}, businessError(429, "登录失败次数过多，请稍后再试")
+	}
 	var account web.CustomerAccount
-	err := s.db.WithContext(ctx).Where("lower(email) = ?", email).First(&account).Error
+	err = s.db.WithContext(ctx).Where("lower(email) = ?", email).First(&account).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		_ = bcrypt.CompareHashAndPassword(s.dummyPasswordHash, bcryptInput(password))
-		return AuthPayload{}, businessError(400, "邮箱或密码错误")
+		return rejectCredential(reasonInvalidCreds)
 	}
 	if err != nil {
 		return AuthPayload{}, fmt.Errorf("find customer account for login: %w", err)
 	}
 	if bcrypt.CompareHashAndPassword([]byte(account.PasswordHash), bcryptInput(password)) != nil {
-		return AuthPayload{}, businessError(400, "邮箱或密码错误")
+		return rejectCredential(reasonInvalidCreds)
 	}
 	if account.Status == "1" {
+		audit(auditResultFailure, reasonAccountDisabled)
 		return AuthPayload{}, businessError(403, "该账号已被停用")
 	}
 	now := time.Now().UTC()
@@ -217,7 +260,13 @@ func (s *Service) Login(ctx context.Context, email, password, clientIP string) (
 	if err := s.db.WithContext(ctx).Model(&account).UpdateColumn("last_login_time", now).Error; err != nil {
 		return AuthPayload{}, fmt.Errorf("update customer last login: %w", err)
 	}
-	return s.issueSession(ctx, account)
+	payload, err := s.issueSession(ctx, account)
+	if err != nil {
+		return AuthPayload{}, err
+	}
+	s.clearLoginFailures(ctx, "customer", lockSubject)
+	audit(auditResultSuccess, "")
+	return payload, nil
 }
 
 func (s *Service) ResetPassword(ctx context.Context, email, code, password, clientIP string) error {
@@ -239,7 +288,7 @@ func (s *Service) ResetPassword(ctx context.Context, email, code, password, clie
 		return fmt.Errorf("hash customer password: %w", err)
 	}
 	now := time.Now().UTC()
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var account web.CustomerAccount
 		if err := tx.Select("account_id").Where("lower(email) = ?", email).First(&account).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -250,8 +299,21 @@ func (s *Service) ResetPassword(ctx context.Context, email, code, password, clie
 		if err := tx.Model(&account).Update("password", string(hash)).Error; err != nil {
 			return err
 		}
-		return tx.Model(&web.CustomerSession{}).Where("account_id = ? AND revoked_at IS NULL", account.AccountID).Update("revoked_at", now).Error
+		if err := tx.Model(&web.CustomerSession{}).Where("account_id = ? AND revoked_at IS NULL", account.AccountID).Update("revoked_at", now).Error; err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	s.recordLoginAudit(ctx, loginAuditEntry{
+		ActorType:  auditActorCustomer,
+		Identifier: maskIdentifier(email),
+		ClientIP:   clientIP,
+		Result:     auditResultSuccess,
+		Reason:     reasonPasswordReset,
 	})
+	return nil
 }
 
 func (s *Service) SetRole(ctx context.Context, accountID uint64, role string) (web.CustomerAccount, error) {

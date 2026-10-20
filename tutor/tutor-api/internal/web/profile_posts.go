@@ -171,10 +171,13 @@ func (s *Service) BuildProfilePayload(ctx context.Context, accountID uint64, inc
 	}
 	brief := AccountBrief{
 		AccountID: account.AccountID, Nickname: account.Nickname, Role: account.Role,
-		CreatedAt: account.CreatedAt, LastLoginAt: account.LastLoginAt,
+		CreatedAt: account.CreatedAt,
 	}
 	if includeEmail {
 		brief.Email = &account.Email
+		// The last sign-in timestamp is personal activity data; only the account
+		// owner sees it.
+		brief.LastLoginAt = account.LastLoginAt
 	}
 	var profile *TeacherProfile
 	if account.Role != nil && *account.Role == "TEACHER" {

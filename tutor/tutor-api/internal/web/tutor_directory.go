@@ -91,7 +91,10 @@ func (s *Service) ListPublicTutors(ctx context.Context, filter TutorDirectoryFil
 	if constellation := strings.TrimSpace(filter.Constellation); constellation != "" {
 		query = query.Where("t.constellation = ?", constellation)
 	}
-	columns := "t.tutor_id, t.tutor_no, t.province, t.city, t.district, t.tutor_name, t.gender, t.age, t.phone, t.avatar_images, t.teacher_type, t.grade_id, t.university, t.major, t.subject_names, t.tutorable_grade_names, t.teaching_mode, t.available_time, t.expected_salary, t.trial_time, t.middle_score, t.high_score, t.service_count, t.avg_score, t.personal_profile, t.audit_status, t.deposit_status"
+	// The directory list is unauthenticated, so it deliberately omits the contact
+	// number. Bulk harvesting a page of tutors must not yield their phone numbers;
+	// the detail route still returns it for the explicit contact action.
+	columns := "t.tutor_id, t.tutor_no, t.province, t.city, t.district, t.tutor_name, t.gender, t.age, t.avatar_images, t.teacher_type, t.grade_id, t.university, t.major, t.subject_names, t.tutorable_grade_names, t.teaching_mode, t.available_time, t.expected_salary, t.trial_time, t.middle_score, t.high_score, t.service_count, t.avg_score, t.personal_profile, t.audit_status, t.deposit_status"
 	switch {
 	case filter.SortBy == "distance" && filter.Latitude != nil && filter.Longitude != nil:
 		query = query.Select(columns+", CASE WHEN t.latitude IS NULL OR t.longitude IS NULL THEN NULL ELSE 6371 * 2 * asin(sqrt(LEAST(1, power(sin(radians(t.latitude - ?) / 2), 2) + cos(radians(?)) * cos(radians(t.latitude)) * power(sin(radians(t.longitude - ?) / 2), 2)))) END AS distance", *filter.Latitude, *filter.Latitude, *filter.Longitude).

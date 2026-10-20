@@ -23,12 +23,13 @@ const SUBJECT_OPTIONS = SUBJECTS.map((s) => ({ label: s.name, value: s.name }));
 const SORT_SELECT_OPTIONS = SORT_OPTIONS.map((o) => ({ label: o.label, value: o.value }));
 
 /**
- * 列表 key：优先用 tutorId；异常数据缺 id 时用「编号 + 姓名 + 院校 + 电话」兜底，
+ * 列表 key：优先用 tutorId；异常数据缺 id 时用「编号 + 姓名 + 院校」兜底，
  * 不要退化成数组下标 —— 后面做筛选/排序时下标会跟着变，卡片会被整片重建。
+ * 列表接口不返回手机号（避免批量抓取联系方式），所以兜底不参与 key。
  */
 function tutorKey(t: TutorInfo): string {
   if (t.tutorId != null) return `t-${t.tutorId}`;
-  return `t-${t.tutorNo ?? ''}|${t.tutorName ?? ''}|${t.university ?? ''}|${t.phone ?? ''}`;
+  return `t-${t.tutorNo ?? ''}|${t.tutorName ?? ''}|${t.university ?? ''}`;
 }
 
 /** 筛选胶囊 —— 移动端抽屉里用，触控高度 44px */

@@ -15,16 +15,29 @@ import (
 )
 
 type API struct {
-	logger   *slog.Logger
-	db       *gorm.DB
-	redis    *redis.Client
-	identity *identity.Service
-	web      *web.Service
-	config   config.Config
+	logger         *slog.Logger
+	db             *gorm.DB
+	redis          *redis.Client
+	identity       *identity.Service
+	web            *web.Service
+	config         config.Config
+	allowedOrigins map[string]struct{}
 }
 
 func New(logger *slog.Logger, db *gorm.DB, redisClient *redis.Client, jwtSecret []byte, cfg config.Config) http.Handler {
-	a := &API{logger: logger, db: db, redis: redisClient, identity: identity.New(db, redisClient, jwtSecret, cfg), web: web.NewService(db), config: cfg}
+	origins := make(map[string]struct{}, len(cfg.AllowedOrigins()))
+	for _, origin := range cfg.AllowedOrigins() {
+		origins[origin] = struct{}{}
+	}
+	a := &API{
+		logger:         logger,
+		db:             db,
+		redis:          redisClient,
+		identity:       identity.New(db, redisClient, jwtSecret, cfg, logger),
+		web:            web.NewService(db),
+		config:         cfg,
+		allowedOrigins: origins,
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", a.live)
 	mux.HandleFunc("GET /health/ready", a.ready)
@@ -78,7 +91,7 @@ func New(logger *slog.Logger, db *gorm.DB, redisClient *redis.Client, jwtSecret 
 	mux.HandleFunc("DELETE /customer/posts/{postID}", a.customerAuth(a.deletePost))
 	mux.HandleFunc("GET /miniapp/tutor/list", a.publicTutorList)
 	mux.HandleFunc("GET /miniapp/tutor/detail/{tutorID}", a.publicTutorDetail)
-	return a.recover(a.requestLog(mux))
+	return a.security(a.recover(a.requestLog(mux)))
 }
 
 func (a *API) live(w http.ResponseWriter, _ *http.Request) {
@@ -106,7 +119,11 @@ func (a *API) requestLog(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
 		next.ServeHTTP(w, r)
-		a.logger.Info("http request", "method", r.Method, "path", r.URL.Path, "duration_ms", time.Since(started).Milliseconds())
+		a.logger.Info("http request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"request_id", requestIDFrom(r),
+			"duration_ms", time.Since(started).Milliseconds())
 	})
 }
 

@@ -21,7 +21,19 @@ Go API for the existing React Web client. It runs beside the legacy Java service
 
 ## Configuration
 
-Set `HTTP_ADDR`, `DATABASE_DSN`, `JWT_SECRET`, `REDIS_ADDR`, and `REDIS_PASSWORD` in the local environment or deployment secret manager. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, and optionally `SMTP_USERNAME` / `SMTP_PASSWORD` before enabling customer email verification. Set `TRUSTED_PROXY_CIDRS` only to network ranges of reverse proxies you operate; forwarded client-IP headers are ignored otherwise, and the administrator login blacklist and rate limiting use that resolved client address.
+Set `HTTP_ADDR`, `DATABASE_DSN`, `JWT_SECRET`, `REDIS_ADDR`, and `REDIS_PASSWORD` in the local environment or deployment secret manager. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, and optionally `SMTP_USERNAME` / `SMTP_PASSWORD` before enabling customer email verification. Set `TRUSTED_PROXY_CIDRS` only to network ranges of reverse proxies you operate; forwarded client-IP headers are ignored otherwise, and the administrator login blacklist, rate limiting, and audit trail use that resolved client address.
+
+`CORS_ALLOWED_ORIGINS` lists the exact browser origins allowed to call the API cross-origin; leaving it empty keeps the API same-origin only, and a wildcard is rejected when `APP_ENV=production`. `TLS_CERT_FILE` and `TLS_KEY_FILE` enable direct TLS termination; leave both empty when a trusted reverse proxy terminates TLS. Startup rejects a documented placeholder `JWT_SECRET` in production, a half-configured TLS pair, and malformed CORS entries.
+
+## Security controls
+
+- Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, a no-resource `Content-Security-Policy`, `Referrer-Policy: no-referrer`, `Cross-Origin-Resource-Policy`/`Opener-Policy`, `Permissions-Policy`, `Cache-Control: no-store`, and `X-Request-Id`. HSTS is added only when the process itself serves TLS.
+- Request bodies are capped at 1 MiB and oversized requests are rejected with 413 before routing.
+- Administrator logins are locked for 15 minutes after 5 credential failures per client address and username; customer logins are locked for 10 minutes after 10 failures. Failure counters are keyed by a digest, so Redis keys never contain an account address or username.
+- Authentication events (admin and customer sign-in, sign-up, password reset) are written to `sys_login_audit` with a masked identifier, client address, user agent, result, and a fixed reason code. The audit write never blocks or fails authentication; a write failure is logged as an error for alerting.
+- Account status is only disclosed after the password has been verified, so the login response cannot be used to enumerate accounts.
+
+`docs/SECURITY-BASELINE.md` maps the current implementation to the applicable classified-protection controls and lists what the deployment must still supply; `docs/DATA-PRIVACY.md` inventories every stored personal data item, its purpose, retention, and access rule.
 
 ## Local development
 
@@ -49,7 +61,7 @@ The React clients use `/web-api` for customer Web, `/admin-api` for administrato
 
 ## Database and migration
 
-GORM is used for application persistence. Schema changes are explicit SQL files in `internal/database/migrations/`; production startup never calls `AutoMigrate`. Migrations 000003_admin_authorization.sql through 000009_admin_login_config.sql create the legacy RBAC snapshot, remove the admin password column from the general PostgreSQL user table, add the historical WeChat user view, store safe operation-log metadata, add the department data-scope tables, create a dedicated administrator credential table, and snapshot the administrator login settings. The importer excludes oper_param, json_result, and error_msg from sys_oper_log; Go stores only allowlisted action metadata in action_meta. Administrator hashes are mapped from MySQL `sys_user.password` into PostgreSQL `sys_user_auth.password_hash`; they never enter the general `sys_user` model/table or importer logs.
+GORM is used for application persistence. Schema changes are explicit SQL files in `internal/database/migrations/`; production startup never calls `AutoMigrate`. Migrations 000003_admin_authorization.sql through 000009_admin_login_config.sql create the legacy RBAC snapshot, remove the admin password column from the general PostgreSQL user table, add the historical WeChat user view, store safe operation-log metadata, add the department data-scope tables, create a dedicated administrator credential table, and snapshot the administrator login settings. Migration 000010_login_audit.sql adds the authentication audit trail. The importer excludes oper_param, json_result, and error_msg from sys_oper_log; Go stores only allowlisted action metadata in action_meta. Administrator hashes are mapped from MySQL `sys_user.password` into PostgreSQL `sys_user_auth.password_hash`; they never enter the general `sys_user` model/table or importer logs.
 
 Customer and administrator session state is rebuilt in Go: customer sessions live in PostgreSQL and must sign in again after cutover, while administrator sessions live in shared Redis so a session ended in one service is refused by the other.
 

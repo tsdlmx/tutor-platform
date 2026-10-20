@@ -64,9 +64,20 @@ func main() {
 		}
 	}()
 
-	logger.Info("web api listening", "addr", cfg.HTTPAddr, "environment", cfg.Environment)
-	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logger.Error("http server stopped unexpectedly", "error", err)
+	logger.Info("web api listening", "addr", cfg.HTTPAddr, "environment", cfg.Environment, "tls", cfg.TLSCertFile != "")
+	if cfg.Production() && cfg.TLSCertFile == "" {
+		// TLS may terminate at the reverse proxy, but the operator has to know that
+		// no transport encryption is configured on this process.
+		logger.Warn("plaintext listener in production; terminate TLS at the trusted reverse proxy and set TRUSTED_PROXY_CIDRS")
+	}
+	var serveErr error
+	if cfg.TLSCertFile != "" {
+		serveErr = server.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile)
+	} else {
+		serveErr = server.ListenAndServe()
+	}
+	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+		logger.Error("http server stopped unexpectedly", "error", serveErr)
 		os.Exit(1)
 	}
 }
