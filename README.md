@@ -109,7 +109,7 @@ go run ./cmd/migrate
 go run ./cmd/server
 ~~~
 
-配置项、已迁移路由、管理员认证流程、数据库与旧 MySQL 数据导入流程见 [tutor/tutor-api/README.md](tutor/tutor-api/README.md)；迁移决策见 `docs/adr`。
+配置项、已迁移路由、管理员认证流程、数据库与旧 MySQL 数据导入流程见 [tutor/tutor-api/README.md](tutor/tutor-api/README.md)；迁移决策见 `docs/adr`；双后端并存、端口分配、最小权限数据库账号与切换/回滚步骤见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)；等保与隐私基线见 [docs/SECURITY-BASELINE.md](docs/SECURITY-BASELINE.md) 与 [docs/DATA-PRIVACY.md](docs/DATA-PRIVACY.md)。
 
 ## 当前限制
 

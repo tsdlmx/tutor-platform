@@ -49,7 +49,7 @@ Then start the API:
 go run ./cmd/server
 ```
 
-`GET /health/live` checks process liveness. `GET /health/ready` checks PostgreSQL and Redis connectivity.
+`GET /health/live` checks process liveness. `GET /health/ready` checks PostgreSQL and Redis connectivity. Deployment topology, port allocation during the two-backend transition, least-privilege database grants, and the cutover/rollback steps are documented in `docs/DEPLOYMENT.md`.
 
 ## Migrated routes
 
