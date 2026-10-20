@@ -87,8 +87,10 @@ func maskEmail(email string) string {
 	}
 }
 
-// maskIdentifier keeps a short, non-reversible prefix for operator recognition.
-func maskIdentifier(value string) string {
+// MaskIdentifier keeps a short, non-reversible prefix for operator recognition.
+// It is exported because the audit listing has to apply the same mask when it
+// searches for an account.
+func MaskIdentifier(value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return "***"
@@ -104,6 +106,45 @@ func maskIdentifier(value string) string {
 
 func loginFailureKey(category, subject string) string {
 	return "web:v1:login-fail:" + category + ":" + digestKey(subject)
+}
+
+// AuditReasonText renders a fixed, non-sensitive description for an audit row.
+// The audit store keeps reason codes only; the human-readable text is derived at
+// read time so the wording can change without rewriting history.
+func AuditReasonText(actorType, reason string) string {
+	text := ""
+	switch reason {
+	case "":
+		text = "登录成功"
+	case reasonInvalidRequest:
+		text = "请求参数不完整"
+	case reasonCaptchaExpired:
+		text = "验证码已过期"
+	case reasonCaptchaInvalid:
+		text = "验证码错误"
+	case reasonInvalidCreds:
+		text = "账号或密码错误"
+	case reasonAccountDisabled:
+		text = "账号已停用"
+	case reasonAccountDeleted:
+		text = "账号不存在"
+	case reasonBlacklisted:
+		text = "登录地址被拒绝"
+	case reasonLocked:
+		text = "失败次数过多，账号临时锁定"
+	case reasonRateLimited:
+		text = "请求过于频繁"
+	case reasonPasswordReset:
+		text = "密码重置成功"
+	case reasonAccountCreated:
+		text = "注册成功"
+	default:
+		text = "登录事件"
+	}
+	if actorType == auditActorCustomer {
+		return "客户：" + text
+	}
+	return text
 }
 
 // loginLocked reports whether the (client address, account) pair exhausted its

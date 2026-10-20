@@ -157,7 +157,7 @@ func (s *Service) LoginAdmin(ctx context.Context, input AdminLoginInput) (string
 	audit := func(result, reason string) {
 		s.recordLoginAudit(ctx, loginAuditEntry{
 			ActorType:  auditActorAdmin,
-			Identifier: maskIdentifier(username),
+			Identifier: MaskIdentifier(username),
 			ClientIP:   input.ClientIP,
 			UserAgent:  input.UserAgent,
 			Result:     result,

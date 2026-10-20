@@ -11,11 +11,11 @@ export function forceLogout(tokenId: string) {
   return requestData<unknown>({ baseURL: '/admin-api', url: `/monitor/online/${tokenId}`, method: 'delete' });
 }
 
-/** GET /monitor/logininfor/list */
+/** GET /monitor/logininfor/list —— 读 Go 侧的登录审计（sys_login_audit） */
 export function listLoginInfor(
   query: PageQuery & { userName?: string; ipaddr?: string; status?: string; beginTime?: string; endTime?: string } = {},
 ) {
-  return requestPage<LoginInfor>({ url: '/monitor/logininfor/list', method: 'get', params: query });
+  return requestPage<LoginInfor>({ baseURL: '/admin-api', url: '/monitor/logininfor/list', method: 'get', params: query });
 }
 
 /** GET /monitor/operlog/list */

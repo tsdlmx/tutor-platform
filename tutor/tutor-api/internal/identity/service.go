@@ -199,7 +199,7 @@ func (s *Service) Register(ctx context.Context, email, password, nickname, code,
 	}
 	s.recordLoginAudit(ctx, loginAuditEntry{
 		ActorType:  auditActorCustomer,
-		Identifier: maskIdentifier(email),
+		Identifier: MaskIdentifier(email),
 		ClientIP:   clientIP,
 		Result:     auditResultSuccess,
 		Reason:     reasonAccountCreated,
@@ -213,7 +213,7 @@ func (s *Service) Login(ctx context.Context, email, password, clientIP, userAgen
 	audit := func(result, reason string) {
 		s.recordLoginAudit(ctx, loginAuditEntry{
 			ActorType:  auditActorCustomer,
-			Identifier: maskIdentifier(email),
+			Identifier: MaskIdentifier(email),
 			ClientIP:   clientIP,
 			UserAgent:  userAgent,
 			Result:     result,
@@ -308,7 +308,7 @@ func (s *Service) ResetPassword(ctx context.Context, email, code, password, clie
 	}
 	s.recordLoginAudit(ctx, loginAuditEntry{
 		ActorType:  auditActorCustomer,
-		Identifier: maskIdentifier(email),
+		Identifier: MaskIdentifier(email),
 		ClientIP:   clientIP,
 		Result:     auditResultSuccess,
 		Reason:     reasonPasswordReset,

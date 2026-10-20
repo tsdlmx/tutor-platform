@@ -6,9 +6,9 @@ import { SimpleListPage, type SimpleListConfig } from '@/pages/admin/SimpleListP
 
 const config: SimpleListConfig<LoginInfor> = {
   title: '登录日志',
-  description: '后台账号的登录记录与登录来源',
+  description: '管理员与客户的登录记录（账号已脱敏存储，筛选为精确匹配）',
   filters: [
-    { name: 'userName', label: '登录名称', type: 'input', placeholder: '如 admin' },
+    { name: 'userName', label: '登录名称', type: 'input', placeholder: '如 admin 或 alice@example.com' },
     { name: 'ipaddr', label: '登录地址', type: 'input', placeholder: '如 127.0.0.1' },
     {
       name: 'status',
