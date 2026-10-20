@@ -52,6 +52,11 @@ REDIS_PORT=6379
 BACKEND_PORT=12501
 WEB_PORT=12500
 
+# 迁移后的 Go Web API（bin-linux/3b-go-api.sh）。与 Java 并存期间用独立端口，
+# 配置来自 data/go-api.env；Java 退役后把它改成 BACKEND_PORT 即可。
+GO_API_PORT="${GO_API_PORT:-12502}"
+PG_PORT="${PG_PORT:-5432}"
+
 # 本机公网 IP（腾讯云 NAT，网卡上只有内网 10.2.0.9）
 PUBLIC_IP="${PUBLIC_IP:-82.156.178.102}"
 

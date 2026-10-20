@@ -12,6 +12,7 @@ banner "停止全部服务"
 # 前端 / 后端 / Redis：按 pid 杀整个进程组，再按端口兜底清理
 stop_one web "$WEB_PORT"
 stop_one backend "$BACKEND_PORT"
+stop_one go-api "$GO_API_PORT"
 stop_one redis "$REDIS_PORT"
 
 # MySQL 优先用 mysqladmin 优雅关闭（会 flush + 干净落盘）

@@ -49,7 +49,7 @@ Then start the API:
 go run ./cmd/server
 ```
 
-`GET /health/live` checks process liveness. `GET /health/ready` checks PostgreSQL and Redis connectivity. Deployment topology, port allocation during the two-backend transition, least-privilege database grants, and the cutover/rollback steps are documented in `docs/DEPLOYMENT.md`.
+`GET /health/live` checks process liveness. `GET /health/ready` checks PostgreSQL and Redis connectivity. On a Linux deployment host, `bash bin-linux/3b-go-api.sh` compiles the service (when a Go toolchain is present), applies the migrations, starts it, and verifies `/health/ready`; its configuration is read from the untracked `data/go-api.env`. Deployment topology, port allocation during the optional two-backend transition, least-privilege database grants, and the cutover/rollback steps are documented in `docs/DEPLOYMENT.md`.
 
 ## Migrated routes
 

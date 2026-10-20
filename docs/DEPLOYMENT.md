@@ -1,10 +1,23 @@
 # 部署说明（Go 服务 + 过渡期双后端）
 
-本文件描述如何把迁移中的 Go Web API 部署到与现有 Java 服务并存的环境，以及最终切换与回滚步骤。它基于仓库现有脚本的真实约定：Linux 侧由 `bin-linux/*.sh` 启动 MySQL、Redis、Java 后端与 `vite preview` 前端，**没有 nginx**，`/prod-api` 由 `vite preview` 代理到 Java。
+本文件描述如何把迁移后的 Go Web API 部署到与现有 Java 服务并存的环境，以及最终切换与回滚步骤。它基于仓库现有脚本的真实约定：Linux 侧由 `bin-linux/*.sh` 启动 MySQL、Redis、Java 后端、Go Web API 与 `vite preview` 前端，**没有 nginx**。
+
+## 0. 迁移现状（2026-10-21 核对）
+
+仓库内已经没有任何客户端依赖 Java 后端，Go 单后端上线是可行的：
+
+| 证据 | 结论 |
+| --- | --- |
+| `tutor-web` 构建产物中不存在 `/dev-api`、`/prod-api` 字样 | React 管理台与 H5 只访问 `/web-api`、`/admin-api` |
+| 前端 `src/api/*.ts` 调用的每条路径都能在 `internal/httpapi/router.go` 找到对应路由 | 无功能缺口（唯一对不上的 `PUT /system/tutorInfo` 是无页面引用的死代码，已删除） |
+| `tutor-uniapp` 只有 3 个页面、没有 `package.json`、没有任何 `uni.request` 调用，首页是硬编码假数据，AppID 已清空 | 小程序端是不部署的静态样张，不是可用客户端 |
+| 部署脚本只拉起 Java、MySQL、Redis 与前端，没有任何构建/部署 uni-app 的步骤 | 小程序不参与本次上线 |
+
+因此「过渡期双后端」只是**可选的安全回滚路径**，不是必须经历的阶段；首次部署可以直接按 Go 单后端进行。
 
 ## 1. 拓扑
 
-### 过渡期（两个后端并存）
+### 过渡期（两个后端并存，可选）
 
 ```
 浏览器
@@ -93,7 +106,27 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE O
 
 迁移由 `cmd/migrate` 执行，需要建表权限；建议用一个单独的迁移账号，或由 DBA 在变更窗口手工执行 `internal/database/migrations/*.sql`。
 
-## 5. 上线步骤（过渡期）
+## 5. 上线步骤
+
+Linux 部署机推荐直接用仓库脚本（编译、迁移、探活、日志都封装好了）：
+
+```bash
+# 1) 准备配置（不提交）：从 tutor/tutor-api/.env.example 复制
+cp tutor/tutor-api/.env.example data/go-api.env
+#   填入真实的 DATABASE_DSN / JWT_SECRET / REDIS_ADDR / PRIVACY_POLICY_VERSION 等
+
+# 2) 启动（缺省监听 12502；有 go 工具链时自动编译并先跑迁移）
+bash bin-linux/3b-go-api.sh
+
+# 3) 前端按第 3 节变量重新构建并发布
+bash bin-linux/4-web.sh
+
+# 4) 停止：bash bin-linux/9-stop-all.sh（会一并停掉 go-api）
+```
+
+把 `GO_API_PORT` 设为 `12501`（或 `BACKEND_PORT` 对应值）、停掉 Java 之后，就是 Go 单后端。
+
+手工部署时等价步骤如下：
 
 ```bash
 # 1) 编译
@@ -166,7 +199,8 @@ SKIP_AUDIT=1 bash scripts/verify.sh # 无外网时跳过依赖审计
 
 ## 10. 尚未覆盖
 
-- 仓库没有 systemd/容器编排文件；`bin-linux` 脚本目前只拉起 MySQL、Redis、Java 与前端。
+- 仓库没有 systemd/容器编排文件；`bin-linux` 已能拉起 Go Web API（`3b-go-api.sh`，需 `data/go-api.env`），但仍是 `setsid nohup` + pid 文件的方式，没有开机自启与崩溃拉起。
+- Go 进程的日志由 `data/logs/go-api.log` 收集，未接入日志轮转；生产需配 logrotate 或日志采集。
 - `vite preview` 不是加固的生产入口：没有 HTTP/2、连接限流与细粒度访问控制，建议上线前补 nginx 配置（TLS1.2+、HSTS、静态资源缓存、`/web-api`、`/admin-api` 转 Go）。
 - 服务监控页已由 Go 提供（宿主机指标 + Go 运行时 + 数据库连接池）；Java 的缓存监控接口没有 React 页面调用，未迁移。
 - 迁移与查询尚未在真实 PostgreSQL 上验证过（开发环境无可用实例），首次部署必须先在预发库执行 `cmd/migrate` 与 `cmd/import-legacy` 预检。

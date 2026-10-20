@@ -98,18 +98,20 @@ corepack pnpm preview
 
 预览服务器默认使用 4173 端口。
 
-## 迁移中的 Go Web API
+## 迁移后的 Go Web API
 
-Web 后端正在按模块从 Java + MySQL 迁移到 Go + GORM + PostgreSQL，前端页面保持不变。Go 服务位于 `tutor/tutor-api`，需要 PostgreSQL 与 Redis：
+Web 后端已从 Java + MySQL 迁移到 Go + GORM + PostgreSQL，前端页面保持不变；React 管理台与 H5 客户端的全部请求都发往 Go 服务（构建产物中不含 `/dev-api`、`/prod-api`），Java 后端目前只作为回滚路径保留。Go 服务位于 `tutor/tutor-api`，需要 PostgreSQL 与 Redis：
 
 ~~~powershell
 Set-Location D:/tutor-platform/tutor/tutor-api
-$env:DATABASE_DSN = 'postgres://...'   # 同时需要 JWT_SECRET、REDIS_ADDR
+$env:DATABASE_DSN = 'postgres://...'   # 同时需要 JWT_SECRET、REDIS_ADDR、PRIVACY_POLICY_VERSION
 go run ./cmd/migrate
 go run ./cmd/server
 ~~~
 
-配置项、已迁移路由、管理员认证流程、数据库与旧 MySQL 数据导入流程见 [tutor/tutor-api/README.md](tutor/tutor-api/README.md)；迁移决策见 `docs/adr`；双后端并存、端口分配、最小权限数据库账号与切换/回滚步骤见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)；等保与隐私基线见 [docs/SECURITY-BASELINE.md](docs/SECURITY-BASELINE.md) 与 [docs/DATA-PRIVACY.md](docs/DATA-PRIVACY.md)。
+Linux 部署机上可改用 `bash bin-linux/3b-go-api.sh`（编译 + 迁移 + 探活，配置读 `data/go-api.env`）。
+
+配置项、已迁移路由、管理员认证与告知同意/注销流程、数据库与旧 MySQL 数据导入流程见 [tutor/tutor-api/README.md](tutor/tutor-api/README.md)；迁移决策见 `docs/adr`；部署拓扑、端口分配、最小权限数据库账号与切换/回滚步骤见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)；等保与隐私基线见 [docs/SECURITY-BASELINE.md](docs/SECURITY-BASELINE.md) 与 [docs/DATA-PRIVACY.md](docs/DATA-PRIVACY.md)；上线前验收见 `scripts/verify.sh`。
 
 ## 当前限制
 

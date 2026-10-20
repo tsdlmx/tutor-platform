@@ -20,6 +20,16 @@ fi
 
 bash "$DIR/2-redis.sh" || exit 1
 bash "$DIR/3-backend.sh" || exit 1
+
+# Go Web API 为可选步骤：只有配置了 data/go-api.env 才启动。
+# 未配置时保持原来的纯 Java 流程，不影响现有部署。
+if [ -f "$DATA/go-api.env" ]; then
+  bash "$DIR/3b-go-api.sh" || exit 1
+else
+  echo
+  echo "  [跳过] Go Web API 未配置（缺少 $DATA/go-api.env）"
+fi
+
 bash "$DIR/4-web.sh" || exit 1
 
 banner "全部启动完成"

@@ -25,11 +25,6 @@ export function auditTutor(payload: AuditPayload) {
     url: '/system/tutorInfo/audit', method: 'put', data: payload });
 }
 
-/** PUT /system/tutorInfo */
-export function updateTutor(data: Partial<TutorInfo>) {
-  return requestOk({ url: '/system/tutorInfo', method: 'put', data });
-}
-
 /** DELETE /system/tutorInfo/{ids} */
 export function deleteTutor(ids: number | number[]) {
   const path = Array.isArray(ids) ? ids.join(',') : String(ids);
