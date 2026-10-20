@@ -150,8 +150,20 @@ COPY (SELECT * FROM sys_login_audit WHERE created_at < now() - interval '6 month
 
 回滚：保留 Java 与 MySQL 的只读快照和原进程启动脚本；把 Go 退回 `12502`、前端代理改回原值、重启 Java 即可。切换后仍在 PostgreSQL 写入的数据不会回流 MySQL，回滚前必须评估这段时间的业务写入。
 
-## 9. 尚未覆盖
+## 9. 发布前验收
+
+```bash
+bash scripts/verify.sh              # 全部验收项
+SKIP_AUDIT=1 bash scripts/verify.sh # 无外网时跳过依赖审计
+```
+
+脚本逐项检查：Go 构建 / `go vet` / `gofmt`、`govulncheck` 可达漏洞、迁移文件命名、前端冻结安装与类型检查与构建、构建产物不得残留 `/dev-api`、`/prod-api`（前端已彻底脱离 Java 的回归护栏）、前端 high/critical 依赖漏洞。任一项失败退出码非 0。
+
+建议接入 CI：在合并前与发布前各跑一次；`govulncheck` 与 `pnpm audit` 需要外网，离线环境用 `SKIP_AUDIT=1` 并改为在联网构建机上单独执行。
+
+## 10. 尚未覆盖
 
 - 仓库没有 systemd/容器编排文件；`bin-linux` 脚本目前只拉起 MySQL、Redis、Java 与前端。
 - `vite preview` 不是加固的生产入口：没有 HTTP/2、连接限流与细粒度访问控制，建议上线前补 nginx 配置（TLS1.2+、HSTS、静态资源缓存、`/web-api`、`/admin-api` 转 Go）。
 - 服务监控页已由 Go 提供（宿主机指标 + Go 运行时 + 数据库连接池）；Java 的缓存监控接口没有 React 页面调用，未迁移。
+- 迁移与查询尚未在真实 PostgreSQL 上验证过（开发环境无可用实例），首次部署必须先在预发库执行 `cmd/migrate` 与 `cmd/import-legacy` 预检。

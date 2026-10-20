@@ -95,7 +95,7 @@
 
 ### 2026-10-21（Go 服务）
 
-工具：`govulncheck@v1.9.0`，扫描 `./...`。
+工具：`govulncheck@v1.9.0`，扫描 `./...`。巡检已脚本化：`bash scripts/verify.sh`（见 docs/DEPLOYMENT.md §9）。
 
 扫描前：本地工具链 go1.26.6，**7 个标准库可达漏洞**（`net/http`、`net/textproto`、`crypto/tls`），修复版本 go1.26.9：
 
