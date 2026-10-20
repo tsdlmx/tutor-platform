@@ -21,7 +21,7 @@ Go API for the existing React Web client. It runs beside the legacy Java service
 
 ## Configuration
 
-Set `HTTP_ADDR`, `DATABASE_DSN`, `JWT_SECRET`, `REDIS_ADDR`, and `REDIS_PASSWORD` in the local environment or deployment secret manager. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, and optionally `SMTP_USERNAME` / `SMTP_PASSWORD` before enabling customer email verification. Set `TRUSTED_PROXY_CIDRS` only to network ranges of reverse proxies you operate; forwarded client-IP headers are ignored otherwise, and the administrator login blacklist, rate limiting, and audit trail use that resolved client address.
+Set `HTTP_ADDR`, `DATABASE_DSN`, `JWT_SECRET`, `REDIS_ADDR`, and `REDIS_PASSWORD` in the local environment or deployment secret manager. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, and optionally `SMTP_USERNAME` / `SMTP_PASSWORD` before enabling customer email verification. `PRIVACY_POLICY_VERSION` is required in production: it is stored with each registration consent so the deployment can show which policy version a customer agreed to. Set `TRUSTED_PROXY_CIDRS` only to network ranges of reverse proxies you operate; forwarded client-IP headers are ignored otherwise, and the administrator login blacklist, rate limiting, and audit trail use that resolved client address.
 
 `CORS_ALLOWED_ORIGINS` lists the exact browser origins allowed to call the API cross-origin; leaving it empty keeps the API same-origin only, and a wildcard is rejected when `APP_ENV=production`. `TLS_CERT_FILE` and `TLS_KEY_FILE` enable direct TLS termination; leave both empty when a trusted reverse proxy terminates TLS. Startup rejects a documented placeholder `JWT_SECRET` in production, a half-configured TLS pair, and malformed CORS entries.
 
@@ -53,7 +53,7 @@ go run ./cmd/server
 
 ## Migrated routes
 
-- Customer Web: authentication, subjects, demands/applications, teacher profile, posts, public tutor directory.
+- Customer Web: authentication, subjects, demands/applications, teacher profile, posts, public tutor directory. Registration requires an explicit consent flag and records it in `t_customer_consent` together with the policy version and client address; `POST /customer/auth/delete-account` erases the account and everything it owns in one transaction after re-checking the password.
 - Administrator authentication: captcha, login, session info, logout.
 - Admin: scoped system-user and role lists, online-session list and force logout, tutor review, customer account list/detail/status, user-post list/pending count/review, historical WeChat user list/detail, operation-log API, login-audit list, and service monitoring. Online listing uses monitor:online:list and force logout uses monitor:online:forceLogout; a session can never force itself out. The administrator's own profile (`GET`/`PUT /system/user/profile`, `PUT /system/user/profile/updatePwd`) is self-service: it requires no menu permission, and changing the password ends every other session of that account. WeChat list and detail use system:wxUser:list and system:wxUser:query; operation logs use monitor:operlog:list; the login-audit list uses monitor:logininfor:list and reads `sys_login_audit`, so account filters are matched against the stored mask rather than the raw identifier; service monitoring uses monitor:server:list. The public miniapp checkLogin route reads the shared session and returns the existing isLogin/userId data shape.
 

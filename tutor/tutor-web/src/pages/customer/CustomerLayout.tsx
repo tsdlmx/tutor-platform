@@ -8,6 +8,12 @@ import {
   Avatar,
   Badge,
   Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Drawer,
   DropdownMenu,
   DropdownMenuContent,
@@ -16,11 +22,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   FullPageSpinner,
+  Input,
+  Label,
+  toast,
 } from '@/components/ui';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { CustomerBottomNav } from '@/components/layouts/CustomerBottomNav';
 import { CustomerFooter } from '@/components/layouts/CustomerFooter';
 import { ROLE_LABEL } from '@/pages/customer/labels';
+import * as customerApi from '@/api/customer';
 
 interface NavItem {
   to: string;
@@ -49,6 +59,10 @@ export function CustomerLayout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  /* 注销账号：需要二次确认并重新输入密码 */
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   /* 路由变化后收起移动端抽屉 */
   useEffect(() => {
@@ -86,6 +100,28 @@ export function CustomerLayout() {
     setMenuOpen(false);
     await logout();
     navigate('/', { replace: true });
+  }
+
+  /** 注销账号（行使删除权）：删除账号与本人简历、帖子、需求、申请，不可恢复 */
+  async function handleDeleteAccount() {
+    if (deleting) return;
+    if (!deletePassword) {
+      toast.error('请先输入登录密码');
+      return;
+    }
+    setDeleting(true);
+    try {
+      await customerApi.deleteAccount(deletePassword);
+      setDeleteOpen(false);
+      setDeletePassword('');
+      toast.success('账号已注销', { description: '你的账号与相关内容已删除' });
+      await logout();
+      navigate('/', { replace: true });
+    } catch (err) {
+      toast.error('注销失败', { description: err instanceof Error ? err.message : '请稍后重试' });
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -157,6 +193,16 @@ export function CustomerLayout() {
                   <DropdownMenuItem onSelect={() => void handleLogout()}>
                     <LogOut className="mr-2 h-3.5 w-3.5" />
                     退出登录
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      setMenuOpen(false);
+                      setDeletePassword('');
+                      setDeleteOpen(true);
+                    }}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    注销账号
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -254,6 +300,38 @@ export function CustomerLayout() {
 
       {/* 移动端底部导航：按老师 / 学生 / 未选身份 / 游客给出不同主入口（md 以上隐藏） */}
       <CustomerBottomNav />
+
+      {/* 注销账号确认：不可恢复，因此要求重新输入密码 */}
+      <Dialog open={deleteOpen} onOpenChange={(open) => !deleting && setDeleteOpen(open)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>注销账号</DialogTitle>
+            <DialogDescription>
+              注销会立即删除你的账号，以及本人的简历、帖子、需求与申请记录，且<strong>无法恢复</strong>。
+              为保障账号安全，请输入登录密码确认。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="delete-password">登录密码</Label>
+            <Input
+              id="delete-password"
+              type="password"
+              autoComplete="current-password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              placeholder="请输入当前账号的密码"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+              取消
+            </Button>
+            <Button variant="destructive" onClick={() => void handleDeleteAccount()} loading={deleting}>
+              确认注销
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

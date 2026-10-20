@@ -86,6 +86,8 @@ export interface RegisterBody {
   nickname?: string;
   /** 邮箱验证码 —— 注册必须先收到并填写它 */
   code: string;
+  /** 必须为 true：未勾选同意隐私政策与用户协议时后端会拒绝注册 */
+  consent: boolean;
 }
 
 /** POST /customer/auth/send-code 的返回 */
@@ -343,6 +345,16 @@ export function login(body: LoginBody) {
 /** POST /customer/auth/logout */
 export function logout() {
   return reqOk({ url: url('/auth/logout'), method: 'post' });
+}
+
+/**
+ * POST /customer/auth/delete-account —— 注销账号（行使删除权）
+ *
+ * 需要重新输入登录密码；后端会在一个事务里删除账号及其简历、帖子、需求与申请。
+ * 安全审计记录保留（只含掩码标识）。
+ */
+export function deleteAccount(password: string) {
+  return reqOk({ url: url('/auth/delete-account'), method: 'post', data: { password } });
 }
 
 /**

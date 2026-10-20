@@ -22,6 +22,13 @@ type registerRequest struct {
 	Password string `json:"password"`
 	Nickname string `json:"nickname"`
 	Code     string `json:"code"`
+	// Consent must be true: registration is refused without an explicit
+	// agreement to the privacy policy and user agreement.
+	Consent bool `json:"consent"`
+}
+
+type deleteAccountRequest struct {
+	Password string `json:"password"`
 }
 
 type loginRequest struct {
@@ -88,12 +95,31 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, 400, "请求参数格式不正确")
 		return
 	}
-	payload, err := a.identity.Register(r.Context(), body.Email, body.Password, body.Nickname, body.Code, clientIP(r, a.config.TrustedProxyCIDRs))
+	payload, err := a.identity.Register(r.Context(), body.Email, body.Password, body.Nickname, body.Code, clientIP(r, a.config.TrustedProxyCIDRs), body.Consent)
 	if err != nil {
 		a.writeBusinessError(w, err)
 		return
 	}
 	writeSuccess(w, "注册成功", payload)
+}
+
+// deleteMyAccount erases the signed-in customer's account and owned content. The
+// password is re-checked because the operation is irreversible.
+func (a *API) deleteMyAccount(w http.ResponseWriter, r *http.Request, session *identity.Session) {
+	var body deleteAccountRequest
+	if !decodeJSON(w, r, &body) {
+		writeAPIError(w, 400, "请求参数格式不正确")
+		return
+	}
+	if body.Password == "" {
+		writeAPIError(w, 400, "请输入登录密码以确认注销")
+		return
+	}
+	if err := a.identity.DeleteAccount(r.Context(), session.Account.AccountID, body.Password, clientIP(r, a.config.TrustedProxyCIDRs)); err != nil {
+		a.writeBusinessError(w, err)
+		return
+	}
+	writeSuccess(w, "账号已注销", nil)
 }
 
 func (a *API) login(w http.ResponseWriter, r *http.Request) {

@@ -47,11 +47,12 @@ REDIS_ADDR=127.0.0.1:6379
 REDIS_PASSWORD=<密码>
 TRUSTED_PROXY_CIDRS=127.0.0.1/32    # 只填写你实际运行的反代网段
 CORS_ALLOWED_ORIGINS=               # 留空 = 仅同源；不要在生产写 *
+PRIVACY_POLICY_VERSION=2026-10-21   # 生产必填：注册同意记录里存这个版本号
 ```
 
 可选：`TLS_CERT_FILE` / `TLS_KEY_FILE`（由进程直接终止 TLS 时填写，两者必须成对）、`SMTP_*`。
 
-校验行为：生产环境下 `JWT_SECRET` 仍是文档占位值时进程拒绝启动；TLS 只配一半、CORS 条目格式非法同样拒绝启动。
+校验行为：生产环境下 `JWT_SECRET` 仍是文档占位值、`PRIVACY_POLICY_VERSION` 为空、TLS 只配一半、CORS 条目格式非法时，进程拒绝启动。
 
 生成密钥：
 
@@ -67,6 +68,8 @@ VITE_WEB_API_PROXY_PREFIX=/web-api
 VITE_WEB_API_PROXY_TARGET=http://127.0.0.1:12502
 VITE_ADMIN_API_PROXY_PREFIX=/admin-api
 VITE_ADMIN_API_PROXY_TARGET=http://127.0.0.1:12502
+# 隐私政策与用户协议的公开地址（注册页勾选同意时链接到此）；上线前必须发布并配置
+VITE_PRIVACY_POLICY_URL=https://<你的域名>/privacy
 # 过渡期兜底（当前没有页面调用，随 Java 退役删除）
 VITE_PROXY_PREFIX=/dev-api
 VITE_PROXY_TARGET=http://127.0.0.1:12501

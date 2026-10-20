@@ -19,11 +19,23 @@ type Config struct {
 	CORSOrigins       string
 	TLSCertFile       string
 	TLSKeyFile        string
-	SMTPHost          string
-	SMTPPort          string
-	SMTPUsername      string
-	SMTPPassword      string
-	SMTPFrom          string
+	// PrivacyPolicyVersion identifies the privacy policy and user agreement a
+	// customer consents to when registering. It is recorded with the consent.
+	PrivacyPolicyVersion string
+	SMTPHost             string
+	SMTPPort             string
+	SMTPUsername         string
+	SMTPPassword         string
+	SMTPFrom             string
+}
+
+// ConsentPolicyVersion returns the version recorded with a registration consent.
+func (c Config) ConsentPolicyVersion() string {
+	if version := strings.TrimSpace(c.PrivacyPolicyVersion); version != "" {
+		return version
+	}
+	// Only reachable outside production: Load rejects an empty version there.
+	return "unset"
 }
 
 func (c Config) Production() bool {
@@ -45,21 +57,22 @@ func (c Config) AllowedOrigins() []string {
 
 func Load() (Config, error) {
 	cfg := Config{
-		HTTPAddr:          strings.TrimSpace(os.Getenv("HTTP_ADDR")),
-		DatabaseDSN:       strings.TrimSpace(os.Getenv("DATABASE_DSN")),
-		Environment:       strings.TrimSpace(os.Getenv("APP_ENV")),
-		JWTSecret:         os.Getenv("JWT_SECRET"),
-		RedisAddr:         strings.TrimSpace(os.Getenv("REDIS_ADDR")),
-		RedisPassword:     os.Getenv("REDIS_PASSWORD"),
-		TrustedProxyCIDRs: strings.TrimSpace(os.Getenv("TRUSTED_PROXY_CIDRS")),
-		CORSOrigins:       strings.TrimSpace(os.Getenv("CORS_ALLOWED_ORIGINS")),
-		TLSCertFile:       strings.TrimSpace(os.Getenv("TLS_CERT_FILE")),
-		TLSKeyFile:        strings.TrimSpace(os.Getenv("TLS_KEY_FILE")),
-		SMTPHost:          strings.TrimSpace(os.Getenv("SMTP_HOST")),
-		SMTPPort:          strings.TrimSpace(os.Getenv("SMTP_PORT")),
-		SMTPUsername:      strings.TrimSpace(os.Getenv("SMTP_USERNAME")),
-		SMTPPassword:      os.Getenv("SMTP_PASSWORD"),
-		SMTPFrom:          strings.TrimSpace(os.Getenv("SMTP_FROM")),
+		HTTPAddr:             strings.TrimSpace(os.Getenv("HTTP_ADDR")),
+		DatabaseDSN:          strings.TrimSpace(os.Getenv("DATABASE_DSN")),
+		Environment:          strings.TrimSpace(os.Getenv("APP_ENV")),
+		JWTSecret:            os.Getenv("JWT_SECRET"),
+		RedisAddr:            strings.TrimSpace(os.Getenv("REDIS_ADDR")),
+		RedisPassword:        os.Getenv("REDIS_PASSWORD"),
+		TrustedProxyCIDRs:    strings.TrimSpace(os.Getenv("TRUSTED_PROXY_CIDRS")),
+		CORSOrigins:          strings.TrimSpace(os.Getenv("CORS_ALLOWED_ORIGINS")),
+		TLSCertFile:          strings.TrimSpace(os.Getenv("TLS_CERT_FILE")),
+		TLSKeyFile:           strings.TrimSpace(os.Getenv("TLS_KEY_FILE")),
+		PrivacyPolicyVersion: strings.TrimSpace(os.Getenv("PRIVACY_POLICY_VERSION")),
+		SMTPHost:             strings.TrimSpace(os.Getenv("SMTP_HOST")),
+		SMTPPort:             strings.TrimSpace(os.Getenv("SMTP_PORT")),
+		SMTPUsername:         strings.TrimSpace(os.Getenv("SMTP_USERNAME")),
+		SMTPPassword:         os.Getenv("SMTP_PASSWORD"),
+		SMTPFrom:             strings.TrimSpace(os.Getenv("SMTP_FROM")),
 	}
 	if cfg.HTTPAddr == "" {
 		cfg.HTTPAddr = "127.0.0.1:12501"
@@ -93,6 +106,12 @@ func Load() (Config, error) {
 	}
 	if strings.ContainsAny(cfg.HTTPAddr, "\r\n") {
 		return Config{}, fmt.Errorf("HTTP_ADDR contains invalid characters")
+	}
+	if cfg.Production() && strings.TrimSpace(cfg.PrivacyPolicyVersion) == "" {
+		return Config{}, errors.New("PRIVACY_POLICY_VERSION is required in production so registration consent can be recorded")
+	}
+	if cfg.Production() && len(cfg.PrivacyPolicyVersion) > 32 {
+		return Config{}, errors.New("PRIVACY_POLICY_VERSION must not exceed 32 characters")
 	}
 	if strings.ContainsAny(cfg.TrustedProxyCIDRs, "\r\n") || strings.ContainsAny(cfg.CORSOrigins, "\r\n") {
 		return Config{}, errors.New("network configuration contains invalid characters")

@@ -28,6 +28,19 @@ type CustomerSession struct {
 
 func (CustomerSession) TableName() string { return "t_customer_session" }
 
+// CustomerConsent records that a customer was shown, and agreed to, the privacy
+// policy and user agreement identified by PolicyVersion.
+type CustomerConsent struct {
+	ConsentID     uint64    `gorm:"column:consent_id;primaryKey;autoIncrement"`
+	AccountID     uint64    `gorm:"column:account_id;not null;index:idx_customer_consent_account"`
+	ConsentType   string    `gorm:"column:consent_type;size:32;not null"`
+	PolicyVersion string    `gorm:"column:policy_version;size:32;not null"`
+	ClientIP      string    `gorm:"column:client_ip;size:64"`
+	ConsentedAt   time.Time `gorm:"column:consented_at;autoCreateTime"`
+}
+
+func (CustomerConsent) TableName() string { return "t_customer_consent" }
+
 type TeacherProfile struct {
 	AccountID      uint64     `gorm:"column:account_id;primaryKey" json:"accountId"`
 	RealName       *string    `gorm:"column:real_name;size:64" json:"realName"`

@@ -161,9 +161,14 @@ func (s *Service) SendCode(ctx context.Context, rawEmail, clientIP, purpose stri
 	return map[string]any{"sent": true, "expiresIn": int(codeTTL.Seconds()), "resendAfter": 60}, nil
 }
 
-func (s *Service) Register(ctx context.Context, email, password, nickname, code, clientIP string) (AuthPayload, error) {
+func (s *Service) Register(ctx context.Context, email, password, nickname, code, clientIP string, consent bool) (AuthPayload, error) {
 	if err := s.rateLimit(ctx, "register", clientIP, 20, time.Hour); err != nil {
 		return AuthPayload{}, err
+	}
+	// Registration is only accepted together with explicit consent, and the
+	// consent is stored with the policy version in force.
+	if !consent {
+		return AuthPayload{}, businessError(400, "请先阅读并同意隐私政策与用户协议")
 	}
 	email = normalizeEmail(email)
 	if !validEmail(email) {
@@ -194,8 +199,23 @@ func (s *Service) Register(ctx context.Context, email, password, nickname, code,
 		return AuthPayload{}, businessError(400, "昵称不能超过 64 个字符")
 	}
 	account := web.CustomerAccount{Email: email, PasswordHash: string(hash), Nickname: stringPointer(cleanNickname), Status: "0"}
-	if err := s.db.WithContext(ctx).Create(&account).Error; err != nil {
-		return AuthPayload{}, fmt.Errorf("create customer account: %w", err)
+	policyVersion := s.cfg.ConsentPolicyVersion()
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&account).Error; err != nil {
+			return fmt.Errorf("create customer account: %w", err)
+		}
+		consent := web.CustomerConsent{
+			AccountID:     account.AccountID,
+			ConsentType:   "privacy_and_terms",
+			PolicyVersion: policyVersion,
+			ClientIP:      clientIP,
+		}
+		if err := tx.Create(&consent).Error; err != nil {
+			return fmt.Errorf("record customer consent: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return AuthPayload{}, err
 	}
 	s.recordLoginAudit(ctx, loginAuditEntry{
 		ActorType:  auditActorCustomer,

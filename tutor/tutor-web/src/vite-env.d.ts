@@ -11,6 +11,8 @@ interface ImportMetaEnv {
   readonly VITE_ADMIN_API_PROXY_PREFIX?: string;
   readonly VITE_ADMIN_API_PROXY_TARGET?: string;
   readonly VITE_ASSET_BASE_URL?: string;
+  /** 隐私政策与用户协议的公开地址，供注册页链接；未配置时页面只显示文字 */
+  readonly VITE_PRIVACY_POLICY_URL?: string;
   readonly VITE_USE_MOCK?: string;
 }
 

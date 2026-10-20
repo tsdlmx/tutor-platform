@@ -26,6 +26,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  *   3) 完成注册（昵称选填）
  * 每步只显示自己的字段，校验通过才能「下一步」，最后一步才真正提交。
  */
+/// 隐私政策与用户协议的公开地址，由构建期变量提供；未配置时只显示文字，不出现死链。
+const PRIVACY_POLICY_URL = (import.meta.env.VITE_PRIVACY_POLICY_URL ?? '').trim();
+
 const STEPS = [
   { title: '验证邮箱', desc: '用邮箱收一条验证码' },
   { title: '设置密码', desc: '6-32 位，建议字母加数字' },
@@ -33,7 +36,7 @@ const STEPS = [
 ];
 
 /** 每一步负责校验哪些字段 */
-const STEP_FIELDS: string[][] = [['email', 'code'], ['password', 'confirm'], ['nickname']];
+const STEP_FIELDS: string[][] = [['email', 'code'], ['password', 'confirm'], ['nickname', 'consent']];
 
 export default function CustomerRegister() {
   const { register, account, authenticated, loading } = useCustomerAuth();
@@ -46,7 +49,7 @@ export default function CustomerRegister() {
     return r === 'TEACHER' || r === 'STUDENT' ? r : null;
   })();
 
-  const [form, setForm] = useState({ email: '', code: '', password: '', confirm: '', nickname: '' });
+  const [form, setForm] = useState({ email: '', code: '', password: '', confirm: '', nickname: '', consent: false });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [sending, setSending] = useState(false);
@@ -106,6 +109,7 @@ export default function CustomerRegister() {
     if (!form.confirm) next.confirm = '请再次输入密码';
     else if (form.confirm !== form.password) next.confirm = '两次输入的密码不一致';
     if (form.nickname.trim().length > 20) next.nickname = '昵称不能超过 20 个字';
+    if (!form.consent) next.consent = '请阅读并同意隐私政策与用户协议';
     return next;
   }
 
@@ -155,6 +159,7 @@ export default function CustomerRegister() {
         email: form.email.trim(),
         password: form.password,
         code: form.code.trim(),
+        consent: form.consent,
         ...(nickname ? { nickname } : {}),
       });
       
@@ -406,6 +411,37 @@ export default function CustomerRegister() {
                       <ShieldCheck className="h-3 w-3 text-success" />
                       注册完成后会让你选择「老师」或「学生」身份
                     </p>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="flex items-start gap-2 text-2xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        name="consent"
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-primary"
+                        checked={form.consent}
+                        onChange={(e) => setForm((f) => ({ ...f, consent: e.target.checked }))}
+                      />
+                      <span>
+                        我已阅读并同意
+                        {PRIVACY_POLICY_URL ? (
+                          <a
+                            href={PRIVACY_POLICY_URL}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="mx-0.5 font-medium text-primary hover:underline"
+                          >
+                            《隐私政策与用户协议》
+                          </a>
+                        ) : (
+                          <span className="mx-0.5 font-medium text-foreground">《隐私政策与用户协议》</span>
+                        )}
+                        ，同意平台按该政策处理我的账号与简历信息。
+                      </span>
+                    </label>
+                    {errors.consent ? (
+                      <p className="text-2xs text-destructive">{errors.consent}</p>
+                    ) : null}
                   </div>
                 </div>
               ) : null}

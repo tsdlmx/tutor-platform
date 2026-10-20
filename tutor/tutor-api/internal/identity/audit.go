@@ -32,6 +32,7 @@ const (
 	reasonRateLimited      = "rate_limited"
 	reasonPasswordReset    = "password_reset"
 	reasonAccountCreated   = "account_created"
+	reasonSelfDeletion     = "self_deletion"
 	loginAuditMaxUserAgent = 255
 )
 
@@ -138,6 +139,8 @@ func AuditReasonText(actorType, reason string) string {
 		text = "密码重置成功"
 	case reasonAccountCreated:
 		text = "注册成功"
+	case reasonSelfDeletion:
+		text = "注销账号"
 	default:
 		text = "登录事件"
 	}
