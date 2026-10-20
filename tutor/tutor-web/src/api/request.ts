@@ -28,7 +28,9 @@ const useMock = String(import.meta.env.VITE_USE_MOCK ?? 'false') === 'true';
 
 /** rare-ui 风格：把所有 axios 实例统一在一个 axios 对象上，带统一拦截器 */
 const http: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/dev-api',
+  // 没有默认后端前缀：每个调用都要显式给出 /web-api 或 /admin-api。
+  // 漏写会打到同源并立刻 404，不会静默回落到已退役的 Java 服务。
+  baseURL: import.meta.env.VITE_API_BASE_URL || '',
   timeout: 20000,
   headers: { 'Content-Type': 'application/json;charset=utf-8' },
   ...(useMock ? { adapter: mockAdapter } : {}),

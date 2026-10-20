@@ -18,11 +18,11 @@ export function listLoginInfor(
   return requestPage<LoginInfor>({ baseURL: '/admin-api', url: '/monitor/logininfor/list', method: 'get', params: query });
 }
 
-/** GET /monitor/operlog/list */
+/** GET /monitor/operlog/list —— 读 Go 侧操作审计（sys_oper_log） */
 export function listOperLog(
   query: PageQuery & { title?: string; operName?: string; businessType?: number; status?: number } = {},
 ) {
-  return requestPage<OperLog>({ url: '/monitor/operlog/list', method: 'get', params: query });
+  return requestPage<OperLog>({ baseURL: '/admin-api', url: '/monitor/operlog/list', method: 'get', params: query });
 }
 
 /** GET /monitor/server —— Go 服务的宿主机与运行时指标 */

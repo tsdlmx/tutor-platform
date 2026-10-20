@@ -6,7 +6,7 @@ import { SimpleListPage, type SimpleListConfig } from '@/pages/admin/SimpleListP
 
 const config: SimpleListConfig<OperLog> = {
   title: '操作日志',
-  description: '后台操作审计记录，含请求参数、返回结果与耗时',
+  description: '后台操作审计，只记录动作、目标与结果等安全元数据，不保存请求体与返回体',
   filters: [
     { name: 'title', label: '系统模块', type: 'input', placeholder: '如 家教信息' },
     { name: 'operName', label: '操作人员', type: 'input', placeholder: '如 admin' },

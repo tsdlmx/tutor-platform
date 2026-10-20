@@ -282,7 +282,7 @@ $py = 'C:\Users\樊佳鑫\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\pyt
 
 - **统计数字来自各列表接口的 `total`**，图表基于 100 条样本计算（界面上标注了「样本统计」）。后端没有专门的聚合统计接口。
 - **系统用户 / 角色只有列表和详情**，没有新增/编辑表单（后端虽然有接口，但原任务范围只要求列表）。
-- **后端响应结构不统一**：`/login`、`/getInfo`、`/captchaImage` 的字段**平铺在根节点**，而 `/monitor/server` 包在 `data` 里。前端 `src/lib/httpCompat.ts` 专门兼容了这两种形状。
+- **后端响应结构不统一**：`/login`、`/getInfo`、`/captchaImage` 的字段**平铺在根节点**，而 `/monitor/server` 包在 `data` 里。前端曾经用 `src/lib/httpCompat.ts` 兼容这两种形状；迁移到 Go 后响应统一为 `{code,msg,data}`，该兼容层及相关兜底已删除。
 - 接口返回的 `Content-Type` 是 `application/json`，**没有带 `charset=UTF-8`**。浏览器和 axios 按 JSON 规范默认用 UTF-8，显示正常；但某些客户端（比如 PowerShell 的 `Invoke-RestMethod`）会解码错，命令行调试时注意。
 
 ### 环境相关

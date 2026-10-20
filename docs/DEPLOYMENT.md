@@ -21,7 +21,7 @@ Java 服务 ── MySQL（只读来源，等待导入） ── 同一个 Redis
 
 ### 切换完成（Go 单后端）
 
-Go 接管 `12501`，`/web-api`、`/admin-api`、`/prod-api` 全部指向 Go；Java 与 MySQL 下线。
+Go 接管 `12501`，前端只访问 `/web-api` 与 `/admin-api`；Java 与 MySQL 下线，`/dev-api` 反代可一并移除。
 
 ## 2. 前置资源
 
@@ -59,16 +59,20 @@ CORS_ALLOWED_ORIGINS=               # 留空 = 仅同源；不要在生产写 *
 openssl rand -hex 32
 ```
 
-前端构建期变量（`tutor/tutor-web/.env.production`，过渡期）：
+前端构建期变量（`tutor/tutor-web/.env.production`，过渡期）。前端已没有默认后端前缀，只访问 `/web-api` 与 `/admin-api`：
 
 ```
-VITE_API_BASE_URL=/prod-api
-VITE_PROXY_PREFIX=/prod-api
-VITE_PROXY_TARGET=http://127.0.0.1:12501
 VITE_CUSTOMER_API_BASE_URL=/web-api
+VITE_WEB_API_PROXY_PREFIX=/web-api
 VITE_WEB_API_PROXY_TARGET=http://127.0.0.1:12502
+VITE_ADMIN_API_PROXY_PREFIX=/admin-api
 VITE_ADMIN_API_PROXY_TARGET=http://127.0.0.1:12502
+# 过渡期兜底（当前没有页面调用，随 Java 退役删除）
+VITE_PROXY_PREFIX=/dev-api
+VITE_PROXY_TARGET=http://127.0.0.1:12501
 ```
+
+构建后可用 `grep -R "/dev-api" dist/assets` 自检：已迁移彻底时产物中不应出现该前缀。
 
 ## 4. 数据库权限
 
@@ -134,14 +138,14 @@ COPY (SELECT * FROM sys_login_audit WHERE created_at < now() - interval '6 month
 
 ## 8. 切换与回滚
 
-切换前提：所有 React 管理页面不再访问 `/dev-api`，且 `sys_login_audit`、`sys_oper_log` 的最终 MySQL 快照已导入。
+切换前提：React 前端已不再依赖 `/dev-api`（构建产物中不含该前缀，漏写 baseURL 会直接 404），且 `sys_login_audit`、`sys_oper_log` 的最终 MySQL 快照已导入。
 
 切换步骤：
 
 1. 冻结 MySQL 写入（停 Java 的写操作或切只读）。
 2. 跑最后一次 `cmd/import-legacy`（预检 + `--apply`）。
 3. Go 改绑 `12501`，前端三个代理目标全部指向 `12501`。
-4. 停 Java，`/dev-api` 前缀从反代移除。
+4. 停 Java，`/dev-api` 前缀从反代移除（仅剩小程序过渡还在用它，若小程序也已迁移则可完全删除）。
 5. 冒烟：管理员登录与验证码、`/getInfo`、教师审核、帖子审核、客户账号状态、在线会话与强制下线、个人中心改密。
 
 回滚：保留 Java 与 MySQL 的只读快照和原进程启动脚本；把 Go 退回 `12502`、前端代理改回原值、重启 Java 即可。切换后仍在 PostgreSQL 写入的数据不会回流 MySQL，回滚前必须评估这段时间的业务写入。

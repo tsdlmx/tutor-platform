@@ -44,7 +44,7 @@ function securityHeaders() {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, rootDir, '');
-  const apiBase = env.VITE_API_BASE_URL || '/dev-api';
+  const apiBase = env.VITE_API_BASE_URL || '';
   const proxyPrefix = env.VITE_PROXY_PREFIX || '/dev-api';
   const proxyTarget = env.VITE_PROXY_TARGET || 'http://localhost:18080';
   const webApiProxyPrefix = env.VITE_WEB_API_PROXY_PREFIX || '/web-api';
