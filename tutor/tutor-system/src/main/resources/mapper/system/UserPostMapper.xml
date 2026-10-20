@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tutor.system.mapper.UserPostMapper">
+
+    <resultMap type="UserPost" id="UserPostResult">
+        <id     property="postId"      column="post_id"/>
+        <result property="accountId"   column="account_id"/>
+        <result property="content"     column="content"/>
+        <result property="images"      column="images"/>
+        <result property="auditStatus" column="audit_status"/>
+        <result property="auditRemark" column="audit_remark"/>
+        <result property="auditTime"   column="audit_time"/>
+        <result property="delFlag"     column="del_flag"/>
+        <result property="createTime"  column="create_time"/>
+        <result property="updateTime"  column="update_time"/>
+        <!-- 作者信息（关联客户账号） -->
+        <result property="authorName" column="author_name"/>
+        <result property="authorRole" column="author_role"/>
+    </resultMap>
+
+    <sql id="selectPostVo">
+        select p.post_id, p.account_id, p.content, p.images,
+               p.audit_status, p.audit_remark, p.audit_time,
+               p.del_flag, p.create_time, p.update_time,
+               coalesce(a.nickname, concat(left(a.email, 3), '***')) as author_name,
+               a.role as author_role
+        from t_user_post p
+        left join t_customer_account a on a.account_id = p.account_id
+    </sql>
+
+    <select id="selectPostList" resultMap="UserPostResult">
+        <include refid="selectPostVo"/>
+        where p.del_flag = '0'
+        <if test="accountId != null">
+            and p.account_id = #{accountId}
+        </if>
+        <if test="auditStatus != null and auditStatus != ''">
+            and p.audit_status = #{auditStatus}
+        </if>
+        order by p.create_time desc, p.post_id desc
+    </select>
+
+    <select id="selectPostById" parameterType="Long" resultMap="UserPostResult">
+        <include refid="selectPostVo"/>
+        where p.post_id = #{postId} and p.del_flag = '0'
+    </select>
+
+    <select id="countByAccount" resultType="int">
+        select count(*) from t_user_post
+        where del_flag = '0'
+        <if test="accountId != null">
+            and account_id = #{accountId}
+        </if>
+        <if test="auditStatus != null and auditStatus != ''">
+            and audit_status = #{auditStatus}
+        </if>
+    </select>
+
+    <update id="updateAudit">
+        update t_user_post
+        set audit_status = #{auditStatus},
+            audit_remark = #{auditRemark},
+            audit_time   = sysdate(),
+            update_time  = sysdate()
+        where post_id = #{postId} and del_flag = '0'
+    </update>
+
+    <insert id="insertPost" parameterType="UserPost" useGeneratedKeys="true" keyProperty="postId">
+        insert into t_user_post
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            account_id, content, audit_status,
+            <if test="images != null">images,</if>
+            create_time,
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            #{accountId}, #{content}, '0',
+            <if test="images != null">#{images},</if>
+            sysdate(),
+        </trim>
+    </insert>
+
+    <update id="deletePostById">
+        update t_user_post set del_flag = '2', update_time = sysdate()
+        where post_id = #{postId}
+    </update>
+
+</mapper>

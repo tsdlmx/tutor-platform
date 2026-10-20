@@ -1,0 +1,210 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   rare-ui 风格设计令牌 —— shadcn/ui 语义化 CSS 变量 (light + dark)
+   ========================================================================== */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+
+    /* 品牌主色 #3C65E2（rgb 60,101,226 = hsl 225 74% 56%） */
+    --primary: 225 74% 56%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+
+    --accent: 225 60% 96%;
+    --accent-foreground: 225 40% 22%;
+
+    --destructive: 0 72.2% 50.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --success: 142 71% 40%;
+    --success-foreground: 0 0% 98%;
+
+    --warning: 32 95% 44%;
+    --warning-foreground: 0 0% 98%;
+
+    /*
+      边框统一走品牌色 #3C65E2。
+      这里用同一色相的「淡一档」（82% 亮度）当描边：整站 60+ 处 border-border
+      都取自这个变量，直接用 56% 的纯蓝会让每张卡片都像被荧光笔描过。
+      想改成「纯品牌色描边」，把下面两行换成 `225 74% 56%` 即可（只有一处）。
+      想更含蓄，把 82% 调大（如 88%）；想更醒目，调小（如 72%）。
+    */
+    --border: 225 74% 82%;
+    --input: 225 74% 82%;
+    /* 焦点环用纯品牌色 */
+    --ring: 225 74% 56%;
+
+    --sidebar: 0 0% 98.5%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-accent: 225 60% 96%;
+    --sidebar-border: 225 60% 90%;
+
+    --radius: 0.75rem;
+
+    --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 10% 5.6%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 10% 5.6%;
+    --popover-foreground: 0 0% 98%;
+
+    /* 深色下同一品牌色提亮一档，保证对比度 */
+    --primary: 225 74% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+
+    --accent: 225 25% 18%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 45%;
+    --destructive-foreground: 0 0% 98%;
+
+    --success: 142 65% 42%;
+    --success-foreground: 0 0% 98%;
+
+    --warning: 32 90% 50%;
+    --warning-foreground: 240 5.9% 10%;
+
+    --border: 225 30% 26%;
+    --input: 225 30% 26%;
+    --ring: 225 74% 60%;
+
+    --sidebar: 240 10% 5%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-accent: 225 25% 18%;
+    --sidebar-border: 225 22% 24%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'tnum';
+    text-rendering: optimizeLegibility;
+  }
+
+  /* 细滚动条 —— rare-ui 的克制感 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.45);
+    background-clip: content-box;
+  }
+
+  /*
+    顶栏现在是实心品牌蓝，默认的蓝色焦点环在蓝底上等于看不见，
+    这里单独把顶栏内的焦点环换成白色（可访问性，不影响其它区域）。
+  */
+  header :focus-visible {
+    outline-color: hsl(var(--primary-foreground) / 0.85);
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring) / 0.55);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* 细腻的玻璃质感面板 */
+  .glass {
+    background: hsl(var(--background) / 0.72);
+    backdrop-filter: saturate(180%) blur(14px);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+  }
+
+  /* 发丝级分隔线 */
+  .hairline {
+    @apply border border-border/70;
+  }
+
+  /* 骨架屏微光 */
+  .skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .skeleton-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--foreground) / 0.06),
+      transparent
+    );
+    animation: shimmer 1.8s infinite;
+  }
+
+  /* 数字等宽，避免 odometer 跳动时宽度抖动 */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  /* H5 安全区 */
+  .safe-bottom {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--tabbar-h, 64px));
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+}

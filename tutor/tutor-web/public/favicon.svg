@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="家教中介平台">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+  </defs>
+  <!-- 圆角底 -->
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#g)" />
+  <!-- 学士帽 -->
+  <path d="M32 17 54 27 32 37 10 27z" fill="#ffffff" />
+  <path d="M20 31.5v8.2c0 3.4 5.4 6.3 12 6.3s12-2.9 12-6.3v-8.2l-12 5.7z" fill="#ffffff" opacity="0.82" />
+  <path d="M52 28.6v10.2" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.9" />
+  <circle cx="52" cy="41.4" r="2.6" fill="#ffffff" opacity="0.9" />
+</svg>

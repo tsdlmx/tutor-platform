@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tutor.system.mapper.DemandApplyMapper">
+
+    <resultMap type="DemandApply" id="DemandApplyResult">
+        <id     property="applyId"       column="apply_id"/>
+        <result property="demandId"      column="demand_id"/>
+        <result property="teacherId"     column="teacher_id"/>
+        <result property="message"       column="message"/>
+        <result property="status"        column="status"/>
+        <result property="createTime"    column="create_time"/>
+        <result property="updateTime"    column="update_time"/>
+        <result property="demandTitle"   column="demand_title"/>
+        <result property="demandSubjects" column="demand_subjects"/>
+        <result property="demandGrade"   column="demand_grade"/>
+        <result property="teacherName"   column="teacher_name"/>
+        <result property="teacherRole"   column="teacher_role"/>
+    </resultMap>
+
+    <insert id="insertApply" parameterType="DemandApply" useGeneratedKeys="true" keyProperty="applyId">
+        insert into t_demand_apply (demand_id, teacher_id, message, status, create_time)
+        values (#{demandId}, #{teacherId}, #{message}, '0', sysdate())
+    </insert>
+
+    <select id="selectByDemandAndTeacher" resultMap="DemandApplyResult">
+        select * from t_demand_apply
+        where demand_id = #{demandId} and teacher_id = #{teacherId}
+        limit 1
+    </select>
+
+    <select id="selectAppliedDemandIds" resultType="java.lang.Long">
+        select demand_id from t_demand_apply where teacher_id = #{teacherId}
+    </select>
+
+    <select id="selectByStudent" resultMap="DemandApplyResult">
+        select ap.apply_id, ap.demand_id, ap.teacher_id, ap.message, ap.status,
+               ap.create_time, ap.update_time,
+               d.title as demand_title, d.subjects as demand_subjects, d.grade as demand_grade,
+               coalesce(a.nickname, concat(left(a.email, 3), '***')) as teacher_name,
+               'TEACHER' as teacher_role
+        from t_demand_apply ap
+        join t_student_demand d on d.demand_id = ap.demand_id and d.del_flag = '0'
+        left join t_customer_account a on a.account_id = ap.teacher_id
+        where d.student_id = #{studentId}
+        order by ap.create_time desc, ap.apply_id desc
+    </select>
+
+    <select id="countByDemand" resultType="int">
+        select count(*) from t_demand_apply where demand_id = #{demandId}
+    </select>
+
+    <select id="selectApplyIdsByDemand" resultType="java.lang.Long">
+        select apply_id from t_demand_apply where demand_id = #{demandId}
+    </select>
+
+    <update id="updateStatus">
+        update t_demand_apply set status = #{status}, update_time = sysdate()
+        where apply_id = #{applyId}
+    </update>
+
+</mapper>

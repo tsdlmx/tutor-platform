@@ -1,0 +1,7 @@
+# pnpm 10 把这类设置放在这里（而不是 .npmrc）
+allowBuilds:
+  esbuild: true
+# 关键：hoisted = 平铺的真实目录，不用符号链接。
+# pnpm 默认的 isolated 布局会在 node_modules 里创建大量符号链接，
+# 打包压缩、再在另一台电脑解压时这些链接会断掉，导致前端跑不起来。
+nodeLinker: hoisted

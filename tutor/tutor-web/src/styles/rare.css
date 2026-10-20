@@ -1,0 +1,190 @@
+/* ==========================================================================
+   rare-ui 补充动效层
+   只做加法：不覆盖 globals.css 里的设计令牌，只补齐 Radix 浮层所需的
+   进出场关键帧（替代未安装的 tailwindcss-animate 插件）。
+   由 main.tsx 在 globals.css 之后引入。
+   ========================================================================== */
+
+@keyframes rare-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rare-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes rare-dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes rare-dialog-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97) translateY(4px);
+  }
+}
+
+@keyframes rare-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes rare-slide-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes rare-slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes rare-slide-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes rare-slide-in-bottom {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes rare-slide-out-bottom {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+/* 说明：这里刻意不使用 @layer utilities —— 本文件是独立的 CSS 入口，
+   没有 @tailwind utilities 指令，用普通规则即可（且能稳定覆盖工具类）。 */
+
+.rare-overlay[data-state='open'] {
+  animation: rare-fade-in 0.18s ease-out;
+}
+.rare-overlay[data-state='closed'] {
+  animation: rare-fade-out 0.15s ease-in forwards;
+}
+
+.rare-dialog[data-state='open'] {
+  animation: rare-dialog-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.rare-dialog[data-state='closed'] {
+  animation: rare-dialog-out 0.15s ease-in forwards;
+}
+
+.rare-drawer-right[data-state='open'] {
+  animation: rare-slide-in-right 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.rare-drawer-right[data-state='closed'] {
+  animation: rare-slide-out-right 0.2s ease-in forwards;
+}
+.rare-drawer-left[data-state='open'] {
+  animation: rare-slide-in-left 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.rare-drawer-left[data-state='closed'] {
+  animation: rare-slide-out-left 0.2s ease-in forwards;
+}
+.rare-drawer-bottom[data-state='open'] {
+  animation: rare-slide-in-bottom 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.rare-drawer-bottom[data-state='closed'] {
+  animation: rare-slide-out-bottom 0.2s ease-in forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rare-overlay[data-state='open'],
+  .rare-overlay[data-state='closed'],
+  .rare-dialog[data-state='open'],
+  .rare-dialog[data-state='closed'],
+  .rare-drawer-right[data-state='open'],
+  .rare-drawer-right[data-state='closed'],
+  .rare-drawer-left[data-state='open'],
+  .rare-drawer-left[data-state='closed'],
+  .rare-drawer-bottom[data-state='open'],
+  .rare-drawer-bottom[data-state='closed'] {
+    animation-duration: 0.001s;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Toast 入场（原来用 framer-motion，为了首屏体积改成纯 CSS）
+   -------------------------------------------------------------------------- */
+@keyframes rare-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.rare-toast-in {
+  animation: rare-toast-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 页面内容入场：替代 Landing 里的 motion.div 逐条淡入 */
+@keyframes rare-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rare-rise {
+  animation: rare-rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rare-toast-in,
+  .rare-rise {
+    animation: none;
+  }
+}

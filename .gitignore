@@ -1,0 +1,15 @@
+# Build output
+**/target/
+**/node_modules/
+**/dist/
+# Local runtime data
+/bin-linux/data/
+/runtime/
+/runtime-linux/
+**/logs/
+**/uploads/
+# Local environment overrides
+**/.env.local
+**/.env.*.local
+# Exported database contains operational logs and personal data
+/tutor/sql/tutor.sql

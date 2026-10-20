@@ -1,0 +1,9 @@
+export * as authApi from '@/api/auth';
+export * as tutorApi from '@/api/tutor';
+export * as customerAccountApi from '@/api/customerAccount';
+export * as userPostApi from '@/api/userPost';
+export * as wxUserApi from '@/api/wxuser';
+export * as systemApi from '@/api/system';
+export * as monitorApi from '@/api/monitor';
+export * as miniappApi from '@/api/miniapp';
+export { ApiError } from '@/api/request';

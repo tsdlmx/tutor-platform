@@ -1,0 +1,101 @@
+﻿家教中介平台 —— 免安装运行包（Windows 64 位）
+================================================================
+
+【怎么用】
+  1. 把整个文件夹拷到新电脑（路径随意，含中文也行；建议放非系统盘）
+  2. 双击  start-all.bat
+  3. 等约 60 秒，浏览器会自动打开：
+       电脑端管理后台：http://127.0.0.1:4173/admin/login
+       手机网页 H5：  http://127.0.0.1:4173/h5
+     账号 admin    密码见部署记录（已改强口令）
+  4. 用完双击  stop-all.bat  关闭全部服务
+
+【两个容易踩的坑，先说在前面】
+  ● 必须先解压再运行，不能直接在压缩包里双击 .bat。
+  ● 解压会比较慢：node_modules 里有上万个碎文件，Windows 自带解压器可能要
+    好几分钟。装了 7-Zip / Bandizip 的话用它们解压会快很多。
+  ● 第一次运行时，Windows 防火墙可能弹窗询问是否允许 MySQL / Java / Node
+    访问网络。它们只监听本机 127.0.0.1，点"允许"或"取消"都不影响使用。
+
+【重要】必须整个文件夹一起拷
+  运行时（JDK / MySQL / Redis / Node）都在 runtime\ 里，数据库文件在 data\ 里，
+  只拷一部分是跑不起来的。
+
+【目录说明】
+  start-all.bat / stop-all.bat      一键启动 / 一键停止
+  1-mysql.bat   2-redis.bat         单独启动某个服务（排查问题时用）
+  3-backend.bat 4-web.bat
+  runtime\jdk8\                     Java 运行时（跑后端）
+  runtime\mysql\                    MySQL 8.0.28（数据库，已删调试符号）
+  runtime\redis\                    Redis 5.0.14（若依启动就依赖它）
+  runtime\node\  runtime\pnpm\      前端运行环境
+  data\mysql\                       数据库文件（已含建好的库 + 演示数据）
+  data\uploadPath\                  文件上传目录
+  tutor\                            项目本体（源码 + 已编译 jar + SQL + 文档 + 工具）
+
+【端口】
+  MySQL 3307   Redis 6379   后端 8080   前端 4173
+  想改端口：改对应 .bat；若改后端端口，还要同步改
+  tutor\tutor-web\.env.production 里的 VITE_PROXY_TARGET。
+
+【常见问题】
+  Q: 某个窗口一闪就没了
+  A: 单独双击对应编号的 .bat（如 1-mysql.bat），错误信息会留在窗口里。
+
+  Q: MySQL 报缺少 DLL 起不来
+  A: 包里 mysql\bin 和 redis\ 目录已经放了 VC++ 运行库 DLL。
+     若仍报错，装一次微软官方的
+     "Visual C++ 2015-2022 Redistributable (x64)"。
+
+  Q: 页面能打开，但登录报错 / 列表是空的
+  A: 后端还没启动完。后端窗口出现 "Started RuoYiApplication" 之后才能用，
+     首次启动约 20-40 秒（之后再启动会快一些）。
+
+  Q: 提示端口被占用
+  A: 先双击 stop-all.bat。若仍被占用，是别的程序占的这些端口，
+     关掉那个程序或改端口。
+
+  Q: 想清空演示数据
+  A: 数据都在 data\mysql 里。删掉它，然后用
+     tutor\sql\tutor.sql + patch-01-subject-names.sql 重新初始化
+     （步骤见 tutor\README-RUN.md 第三节）。
+
+【小程序端（可选）】
+  tutor\tutor-uniapp\ 是微信小程序源码，用 HBuilderX 打开。
+  AppID 已替换为占位符 wx0000000000000000，发布前改成你自己的；
+  DCloud AppID 已清空，HBuilderX 首次打开会自动申请。
+
+【上线前必须改的 4 处】
+  1. MySQL 密码（现在是 1234）——
+     tutor\tutor-admin\src\main\resources\application-druid.yml
+  2. JWT 密钥（application.yml 的 token.secret，现在是
+     abcdefghijklmnopqrstuvwxyz）。不改的话任何人都能伪造登录态，
+     这是最危险的一条。
+  3. Druid 监控台口令（application-druid.yml，现在是 123456）
+  4. 关掉 Swagger（application.yml 的 swagger.enabled: false）
+  注意：1-4 改完都属于 Java 配置，需要重新构建 jar 才生效：
+     cd tutor
+     mvn -s <你的 settings.xml> -DskipTests clean package
+  （本包只带了运行用的 jar，没带 Maven）
+
+【授权提醒】
+  项目 LICENSE 文件是若依（RuoYi）的 MIT 协议，但原 README 页脚写着
+  "© 小孟技术团队 All Rights Reserved"，两者是矛盾的。
+  若依那部分可以放心商用（MIT）；小孟自己写的业务代码
+  建议向他本人（微信 codemeng）要一句书面确认。
+
+【验证工具（可选，需要 Python 3）】
+  tutor\tools\ 下有三套验证脚本：
+     verify-api.py        后端接口 28 项
+     verify-web-e2e.py    前后端联调 16 项
+     verify-browser.py    真实浏览器渲染 + 自动截图 16 项
+  运行前先启动全部服务。注意：脚本里默认按开发端口 5173 写的，
+  本包前端跑在 4173，用前把脚本里的 5173 改成 4173。
+
+【技术栈】
+  后端  Spring Boot 2.5.15 + Spring Security + MyBatis + MySQL + Redis（若依 3.9.0 二次开发）
+  前端  React 18 + Vite 5 + TypeScript + Tailwind + framer-motion（rare-ui 风格）
+  小程序 uni-app（Vue 3）
+
+  本次交付相对原始项目修复了 3 个真实缺陷（登录页白屏、列表重复行、按科目筛选失效），
+  详见 tutor\README-RUN.md 第五节。
