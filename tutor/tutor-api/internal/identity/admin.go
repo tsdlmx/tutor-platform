@@ -437,6 +437,14 @@ WHERE ur.user_id = ? AND r.status = '0' AND COALESCE(r.del_flag, '0') = '0'
 	return principal, nil
 }
 
+// AdminSessionID returns the session identifier carried by a valid token without
+// touching Redis. It is used to distinguish the caller's own session from the
+// sessions it is allowed to revoke.
+func (s *Service) AdminSessionID(rawToken string) (string, error) {
+	sessionID, _, err := s.parseAdminToken(rawToken)
+	return sessionID, err
+}
+
 // CaptchaEnabled reports whether the snapshotted login configuration still
 // requires a verification code.
 func (s *Service) CaptchaEnabled(ctx context.Context) (bool, error) {

@@ -115,6 +115,10 @@ func adminActionTitle(action string) string {
 		return "用户帖子"
 	case strings.HasPrefix(action, "customer_account."):
 		return "客户账号"
+	case strings.HasPrefix(action, "profile."):
+		return "个人信息"
+	case strings.HasPrefix(action, "online."):
+		return "在线管理员"
 	default:
 		return "后台操作"
 	}

@@ -31,6 +31,7 @@ export function getInfo() {
 /** GET /system/user/profile */
 export function getProfile() {
   return requestData<{ user: SysUser; roleGroup: string; postGroup: string }>({
+    baseURL: '/admin-api',
     url: '/system/user/profile',
     method: 'get',
   });
@@ -38,14 +39,15 @@ export function getProfile() {
 
 /** PUT /system/user/profile —— 修改个人资料 */
 export function updateProfile(data: Partial<SysUser>) {
-  return requestOk({ url: '/system/user/profile', method: 'put', data });
+  return requestOk({ baseURL: '/admin-api', url: '/system/user/profile', method: 'put', data });
 }
 
 /** PUT /system/user/profile/updatePwd */
 export function updateUserPwd(oldPassword: string, newPassword: string) {
   return requestOk({
+    baseURL: '/admin-api',
     url: '/system/user/profile/updatePwd',
     method: 'put',
-    params: { oldPassword, newPassword },
+    data: { oldPassword, newPassword },
   });
 }

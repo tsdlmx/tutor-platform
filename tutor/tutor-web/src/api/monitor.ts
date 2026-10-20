@@ -8,7 +8,7 @@ export function listOnline(query: PageQuery & { userName?: string; ipaddr?: stri
 
 /** DELETE /monitor/online/{tokenId} —— 强退 */
 export function forceLogout(tokenId: string) {
-  return requestData<unknown>({ url: `/monitor/online/${tokenId}`, method: 'delete' });
+  return requestData<unknown>({ baseURL: '/admin-api', url: `/monitor/online/${tokenId}`, method: 'delete' });
 }
 
 /** GET /monitor/logininfor/list */

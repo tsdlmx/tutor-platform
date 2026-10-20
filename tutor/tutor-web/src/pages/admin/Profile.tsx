@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 import { KeyRound, Save, ShieldCheck, UserCog } from 'lucide-react';
 import * as authApi from '@/api/auth';
-import { getCompat } from '@/lib/httpCompat';
 import { useAuth } from '@/store/auth';
 import { emptyText, formatDateTime, genderLabel, resolveAssetUrl } from '@/lib/constants';
-import type { SysUser } from '@/types/api';
 import { Avatar, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Field, Input, Select, toast } from '@/components/ui';
 import { PageHeader } from '@/components/common';
 
@@ -32,14 +30,7 @@ export default function Profile() {
     let alive = true;
     (async () => {
       try {
-        let res = await authApi.getProfile();
-        // 兜底：RuoYi 原生 /system/user/profile 平铺返回 { user, roleGroup, postGroup }
-        if (!res?.user) {
-          const flat = await getCompat<{ user?: SysUser; roleGroup?: string; postGroup?: string }>(
-            '/system/user/profile',
-          );
-          res = { user: flat?.user as SysUser, roleGroup: flat?.roleGroup ?? '', postGroup: flat?.postGroup ?? '' };
-        }
+        const res = await authApi.getProfile();
         if (!alive || !res?.user) return;
         const u = res.user;
         setRoleGroup(res.roleGroup ?? '');
