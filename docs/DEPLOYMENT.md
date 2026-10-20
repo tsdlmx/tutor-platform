@@ -27,6 +27,8 @@ Go 接管 `12501`，`/web-api`、`/admin-api`、`/prod-api` 全部指向 Go；Ja
 
 | 资源 | 说明 |
 | --- | --- |
+| Go 1.26.9+ | `go.mod` 已声明 `toolchain go1.26.9`：低版本工具链带已知标准库漏洞，不应再用于构建。构建机可联网时 Go 会自动下载该工具链，离线构建需预置。 |
+| Node 20.19+ / pnpm 9+ | 前端构建与 `vite preview`；`package.json` 的 `engines` 已声明下限。 |
 | PostgreSQL 13+ | 权威库，字符集 UTF8，时区 UTC。库名示例 `tutor`。 |
 | Redis 6+ | 与 Java 共用同一实例和逻辑库（过渡期必需），用于管理员会话 `login_tokens:*`、验证码 `captcha_codes:*`、邮箱验证码与限流计数。 |
 | SMTP | 未配置时客户注册/找回验证码接口返回 503（安全失败，不回显验证码）。 |

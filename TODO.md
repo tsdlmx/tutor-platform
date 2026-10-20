@@ -17,7 +17,7 @@
 - [x] 修正基于客户端 IP 的限流信任边界：仅接受明确配置的可信代理转发头，`TRUSTED_PROXY_CIDRS` 为空时完全忽略转发头。
 - [ ] 限制 HTML/HTM 等可执行内容上传，或将上传内容隔离并以安全的响应头和独立来源提供。*（上传接口仍在 Java）*
 - [ ] 使用最小权限数据库账号；检查 Git 历史和部署配置中的凭据暴露情况，并将密钥放在受控的环境配置或密钥管理服务中。
-- [ ] 评估并升级较旧的 Spring Boot、Spring Framework、Apache POI 等依赖；升级前核对官方安全公告、支持状态和兼容性。
+- [ ] 评估并升级较旧的 Spring Boot、Spring Framework、Apache POI 等依赖；升级前核对官方安全公告、支持状态和兼容性。*（Go 侧 `govulncheck` 可达漏洞 0 个，工具链钉在 go1.26.9；前端 `pnpm audit` 由 17 条降为 2 条 dev-only；Java 依赖未动。详见 docs/SECURITY-BASELINE.md §10）*
 - [ ] 提供不含真实业务数据的 schema 初始化方案或迁移脚本，并与演示数据、生产数据分开管理。*（Go 侧已提供 `internal/database/migrations/` 与 `cmd/migrate`，不含业务数据）*
 - [ ] 对齐 Windows/Linux 启动脚本的端口、路径、环境变量和健康检查；明确所需运行时资源，避免默认对公网开放服务。
 - [ ] 为对象级授权、密码重置、敏感日志、管理权限、限流和上传策略增加回归验证，并在 CI 中运行。*（当前只有构建、静态检查与一次性逻辑验证，尚无 CI 用例集）*

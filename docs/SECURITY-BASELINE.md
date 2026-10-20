@@ -64,7 +64,7 @@
 | 错误信息不泄露内部细节 | 已实现 | 业务错误返回固定中文文案；内部错误统一 500 文案，仅记录错误类型不记录 SQL 与堆栈。 |
 | 响应头加固 | 已实现 | `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`CSP`、`Cross-Origin-*`、`Permissions-Policy`、`Cache-Control: no-store`，TLS 时附加 HSTS。 |
 | 关键配置校验 | 已实现 | 启动时校验 `JWT_SECRET` 长度、拒绝文档占位值、CORS 来源格式、TLS 证书与私钥成对、SMTP 参数成组。 |
-| 依赖漏洞管理 | 部分 | Go 依赖版本已固定并有 `go.sum`；尚无自动化 SCA 与升级节奏，见 TODO。 |
+| 依赖漏洞管理 | 已实现 | Go：`govulncheck` 为 0 个可达漏洞，`go.mod` 以 `toolchain go1.26.9` 钉住已修复标准库漏洞的版本；前端：`pnpm audit` 由 17 条降为 2 条，剩余项均为构建期 devDependency。扫描记录见 §10。 |
 | 数据备份与恢复 | 平台/运维承担 | 需数据库层备份策略与恢复演练，应用不承担。 |
 
 ## 7. 剩余信息保护与个人信息
@@ -88,5 +88,52 @@
 ## 9. 仍待实现（本仓库内）
 
 - 双因素认证（若定级要求）。
-- 依赖漏洞扫描与升级节奏（SCA、SBOM）。
 - 自动化的授权回归用例集（跨账号、越权、限流边界）。
+- SBOM 生成与漏洞扫描的 CI 化（当前为人工定期执行）。
+
+## 10. 依赖漏洞扫描记录
+
+### 2026-10-21（Go 服务）
+
+工具：`govulncheck@v1.9.0`，扫描 `./...`。
+
+扫描前：本地工具链 go1.26.6，**7 个标准库可达漏洞**（`net/http`、`net/textproto`、`crypto/tls`），修复版本 go1.26.9：
+
+| 编号 | 受影响包 | 修复版本 |
+| --- | --- | --- |
+| GO-2026-6603 / 6611 / 6612 / 6613 / 6617 | net/http | go1.26.9 |
+| GO-2026-6608 | net/textproto | go1.26.9 |
+| GO-2026-6607 | crypto/tls | go1.26.9 |
+
+处置：
+
+1. `go.mod` 增加 `toolchain go1.26.9`，构建时自动使用已修复的工具链；`go build ./...` 复核通过。
+2. `filippo.io/edwards25519` 由 v1.1.0 升级到 v1.1.1（GO-2026-4503，修复版本 v1.1.1）。
+3. 复扫结果：**可达漏洞 0 个**。
+
+遗留（当前无上游修复，且代码不可达，登记为受控风险）：
+
+| 编号 | 模块 | 状态 | 判定依据 |
+| --- | --- | --- | --- |
+| GO-2026-5932 | golang.org/x/crypto v0.58.0（已是当前最新版） | 无修复版本 | 仅出现在未被调用的符号路径上；`govulncheck` 判定代码不可达。每次升级依赖时复扫。 |
+
+### 2026-10-21（前端）
+
+工具：`pnpm audit`（需 `--registry https://registry.npmjs.org`，镜像源缺少 audit 接口）。
+
+扫描前：17 条（2 high / 13 moderate / 2 low）。处置后：**2 条（1 high / 1 moderate）**。
+
+已修复：
+
+- `react-router-dom` 6.30 → 7.18.2：修掉开放重定向（CWE-601）与 RSC 模式 CSRF；升级后路由 API 用法（`BrowserRouter`、`Routes`、`Route`、`Link`、`NavLink`、`Navigate`、`Outlet`、`useNavigate`、`useParams`、`useLocation`、`useSearchParams`）全部保持不变，`pnpm typecheck` 与 `pnpm build` 通过。
+- `vite` 5.4.11 → 6.4.3：修掉 dev/preview 中间件的路径穿越、`server.fs.deny` 绕过与 launch-editor 的 NTLM 哈希泄露。
+- `esbuild` 随之升到 0.25.0 以上。
+
+遗留（均为构建期 devDependency，不进入浏览器产物）：
+
+| 模块 | 严重级 | 无法修复的原因 | 风险判定 |
+| --- | --- | --- | --- |
+| braces | high | 上游无修复版本；经 `tailwindcss` → `chokidar`/`micromatch` 引入 | 仅在开发者本机执行 glob 时触发，输入由开发者控制，不接受用户输入 |
+| postcss-selector-parser | moderate | 修复版本 7.1.6+ 与 `tailwindcss` 3 的 `^6` 依赖冲突，需升级到 tailwind 4（配置重写） | 构建期 CSS 解析，不处理不可信输入 |
+
+补充说明：本仓库当前用 `vite preview` 充当生产入口，因此 vite 的 dev/preview 类漏洞按生产口径处理，已升级到 6.4.3；实测 `vite preview` 对 `.env.production`、`package.json`、`src/**` 等非产物路径均返回 SPA 兜底页而非文件内容，未发生源文件泄露。长期仍建议改用 nginx（见 `docs/DEPLOYMENT.md`）。
