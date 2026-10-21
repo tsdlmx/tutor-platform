@@ -228,7 +228,14 @@ export function formatDateTime(v?: string | number | null) {
     const d = new Date(v);
     return Number.isNaN(d.getTime()) ? '—' : toLocal(d);
   }
-  return String(v).replace('T', ' ');
+  const text = String(v).trim();
+  // Go 侧返回 RFC3339（带 T、小数秒与 Z/时区），统一转成本地时间并去掉小数秒；
+  // 已经是 "YYYY-MM-DD HH:mm:ss" 的字符串原样返回。
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(text)) {
+    const parsed = new Date(text);
+    if (!Number.isNaN(parsed.getTime())) return toLocal(parsed);
+  }
+  return text.replace('T', ' ');
 }
 
 function toLocal(d: Date) {
