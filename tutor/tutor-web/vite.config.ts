@@ -71,6 +71,15 @@ export default defineConfig(({ mode }) => {
       ? { key: fs.readFileSync(tlsKey), cert: fs.readFileSync(tlsCrt) }
       : undefined;
 
+  // 开发服务器允许的 Host 头：默认只放行本机，需要按 IP/域名访问时用
+  // VITE_DEV_ALLOWED_HOSTS=a.example.com,b.example.com 追加（不写死任何地址）。
+  const allowedHosts = ['localhost', '127.0.0.1'].concat(
+    (env.VITE_DEV_ALLOWED_HOSTS || '')
+      .split(',')
+      .map((value: string) => value.trim())
+      .filter(Boolean),
+  );
+
   // 开发（vite dev）和预览（vite preview）用同一套代理规则，避免两处不一致
   // 所有客户端接口都在 Go 服务上；/dev-api 已无消费者，不再配置代理。
   const proxy = {
@@ -108,7 +117,7 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       https,
       // 公网按 IP 访问，把这几个 Host 显式列出来（Vite 有 Host 头校验）
-      allowedHosts: ['82.156.178.102', 'localhost', '127.0.0.1'],
+      allowedHosts,
       watch: {
         /*
           为什么需要这个：

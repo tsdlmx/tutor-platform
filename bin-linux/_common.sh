@@ -41,7 +41,7 @@ fi
 
 # 下面这些变量都可由 data/secrets.env 或同名环境变量覆盖；
 # 括号里的值只是本地开发默认值，生产必须覆盖。
-MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-1234}"
+MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-}"
 REDIS_PASSWORD="${REDIS_PASSWORD:-}"
 # 密钥/口令文件的搜索目录（脚本只用来打印提示，不自动读取这里的文件）
 SECRETS_DIR="${SECRETS_DIR:-$HOME/.dsh/secrets}"

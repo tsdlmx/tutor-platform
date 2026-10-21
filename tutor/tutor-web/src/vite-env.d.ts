@@ -15,6 +15,8 @@ interface ImportMetaEnv {
   readonly VITE_TOKEN_KEY?: string;
   readonly VITE_CUSTOMER_TOKEN_KEY?: string;
   readonly VITE_THEME_KEY?: string;
+  /** 开发服务器允许的 Host 头（逗号分隔），用于按 IP/域名访问 */
+  readonly VITE_DEV_ALLOWED_HOSTS?: string;
   readonly VITE_USE_MOCK?: string;
 }
 
