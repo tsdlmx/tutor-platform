@@ -10,6 +10,32 @@
 
 ## 一、怎么跑起来
 
+### 0. 先准备两个配置文件（都放 `data/`，都不会入库）
+
+`data/` 已被 `.gitignore` 排除，是放密钥的唯一位置。两个文件分工不同：
+
+| 文件 | 谁读 | 放什么 |
+| --- | --- | --- |
+| `data/go-api.env` | Go 服务（`3b-go-api.bat` / `bin-linux/3b-go-api.sh` 会读） | 数据库连接串、JWT 密钥、Redis、SMTP 等 |
+| `data/secrets.env` | `bin-linux/*.sh` 与根目录 `*.bat` 在启动/停止 MySQL、生成证书时读 | MySQL root 口令、Redis 口令、公网地址 |
+
+```powershell
+# data/go-api.env（可从模板复制）
+Set-Location D:\tutor-platform
+Copy-Item tutor\tutor-api\.env.example data\go-api.env
+# 编辑 data\go-api.env，至少填 DATABASE_DSN / JWT_SECRET / REDIS_ADDR / PRIVACY_POLICY_VERSION
+```
+
+```sh
+# data/secrets.env（用 bin-linux 脚本时必须；Windows 下用 .bat 只需 MYSQL_ROOT_PASSWORD 一致即可）
+MYSQL_ROOT_PASSWORD=<你的 MySQL root 口令>
+REDIS_PASSWORD=            # 留空表示 Redis 无密码
+PUBLIC_IP=                 # 公网 IP；留空则脚本不打印公网地址
+TLS_HOST=                  # 生成自签证书用；留空则回退 PUBLIC_IP，两者都空会报错
+```
+
+这几个值**不在脚本里写死**：优先级是 环境变量 > `data/secrets.env` > 脚本内置默认（除 `MYSQL_ROOT_PASSWORD` 外都为空）。`MYSQL_ROOT_PASSWORD` 缺省为空时，`5-init-db.sh` 会拒绝执行并提示你补上。
+
 ### 1. Go Web API（后端）
 
 需要 PostgreSQL 与 Redis。
@@ -32,7 +58,7 @@ bash bin-linux/3b-go-api.sh
 ```powershell
 Set-Location tutor\tutor-api
 $env:DATABASE_DSN = 'postgres://user:pass@127.0.0.1:5432/tutor?sslmode=disable'
-$env:JWT_SECRET   = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+$env:JWT_SECRET   = '<用 openssl rand -hex 32 生成，不要用示例值>'
 $env:REDIS_ADDR   = '127.0.0.1:6379'
 $env:PRIVACY_POLICY_VERSION = '2026-10-21'
 go run ./cmd/migrate    # 11 个版本化迁移，幂等
@@ -203,9 +229,11 @@ Vite 把 `/web-api`、`/admin-api` 代理到 Go 服务，目标由 `VITE_WEB_API
 
 ---
 
-## 六、配置项
+## 六、配置与密钥
 
-Go 服务（`data/go-api.env`，不入库）：
+两个 env 文件都在 `data/` 下（已 gitignore）。**不要把它们的内容写进任何会被提交的地方**：文档、脚本、示例配置都不要。
+
+### 6.1 `data/go-api.env` —— Go 服务
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
@@ -220,9 +248,34 @@ Go 服务（`data/go-api.env`，不入库）：
 | `SMTP_*` | 否 | 未配置时注册/找回验证码返回 503（安全失败） |
 | `LEGACY_MYSQL_DSN` | 否 | 仅 `cmd/import-legacy` 使用，必须是只读账号 |
 
-本地启动脚本（`bin-linux/*.sh`、根目录 `*.bat`）的敏感值放 `data/secrets.env`，可覆盖 `MYSQL_ROOT_PASSWORD`、`REDIS_PASSWORD`、`PUBLIC_IP`、`TLS_HOST`、`SECRETS_DIR`、`REDIS_PASSWORD_FILE`。脚本里只保留本地开发默认值（如 MySQL 口令），**生产必须用 secrets.env 或同名环境变量覆盖**；`PUBLIC_IP` 未设置时脚本不打印公网地址，`7-tls-cert.sh` 会要求显式提供。
+### 6.2 `data/secrets.env` —— 本地脚本
 
-前端构建期变量：`VITE_CUSTOMER_API_BASE_URL`、`VITE_WEB_API_PROXY_*`、`VITE_ADMIN_API_PROXY_*`、`VITE_PRIVACY_POLICY_URL`、`VITE_ASSET_BASE_URL`、`VITE_USE_MOCK`，以及可选的 `VITE_TOKEN_KEY` / `VITE_CUSTOMER_TOKEN_KEY` / `VITE_THEME_KEY`（覆盖 localStorage 的 key，用于多站点同域隔离）。
+`bin-linux/*.sh` 与根目录 `*.bat` 在启停 MySQL、生成证书时用这些值。优先级：**环境变量 > `data/secrets.env` > 脚本内置默认**（除 `MYSQL_ROOT_PASSWORD` 外默认都是空）。
+
+| 变量 | 默认 | 说明 |
+| --- | --- | --- |
+| `MYSQL_ROOT_PASSWORD` | 空 | MySQL root 口令。为空时 `5-init-db.sh` 拒绝执行；`9-stop-all.sh` 会跳过优雅关闭直接停进程 |
+| `REDIS_PASSWORD` | 空 | 空表示 Redis 无密码；`2-redis.sh` 的自检提示据此分支 |
+| `PUBLIC_IP` | 空 | 公网地址。为空时 `0-start-all.sh`、`4-web.sh` 不打印公网访问行 |
+| `TLS_HOST` | 回退 `PUBLIC_IP` | `7-tls-cert.sh` 写进证书 SAN 的 IP/域名；两者都空则报错退出 |
+| `SECRETS_DIR` | `~/.dsh/secrets` | 仅用于提示信息里的口令文件位置 |
+| `REDIS_PASSWORD_FILE` | `$SECRETS_DIR/redis-password.txt` | 同上，脚本不会自动读取该文件 |
+
+示例：
+
+```sh
+# data/secrets.env
+MYSQL_ROOT_PASSWORD=<强口令>
+REDIS_PASSWORD=
+PUBLIC_IP=
+TLS_HOST=
+```
+
+这些值**不要在脚本里写死**，也不要提交任何真实值——脚本里已经不内置口令和公网 IP。
+
+### 6.3 前端构建期变量
+
+`VITE_CUSTOMER_API_BASE_URL`、`VITE_WEB_API_PROXY_*`、`VITE_ADMIN_API_PROXY_*`、`VITE_PRIVACY_POLICY_URL`、`VITE_ASSET_BASE_URL`、`VITE_USE_MOCK`，以及可选的 `VITE_TOKEN_KEY` / `VITE_CUSTOMER_TOKEN_KEY` / `VITE_THEME_KEY`（覆盖 localStorage 的 key，用于多站点同域隔离）、`VITE_DEV_ALLOWED_HOSTS`（开发服务器允许的 Host 头，逗号分隔，默认只放行 localhost/127.0.0.1）。
 
 前端**没有默认后端前缀**：每个请求必须显式给 `/web-api` 或 `/admin-api`；漏写会打到同源直接 404。
 
