@@ -97,6 +97,8 @@
 
 ### 2026-10-21（Go 服务）
 
+同一轮还完成了首次真库验证：11 个迁移在 PostgreSQL 16.2 上全部应用成功，36 项端到端检查（身份鉴别、授权、改密踢会话、强制下线、审计、删除权）全部通过，证据见 `docs/VERIFICATION-RESULTS.md`。
+
 工具：`govulncheck@v1.9.0`，扫描 `./...`。巡检已脚本化：`bash scripts/verify.sh`（见 docs/DEPLOYMENT.md §9）。
 
 扫描前：本地工具链 go1.26.6，**7 个标准库可达漏洞**（`net/http`、`net/textproto`、`crypto/tls`），修复版本 go1.26.9：

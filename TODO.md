@@ -19,8 +19,8 @@
 - [ ] 使用最小权限数据库账号；检查 Git 历史和部署配置中的凭据暴露情况，并将密钥放在受控的环境配置或密钥管理服务中。
 - [ ] 评估并升级较旧的 Spring Boot、Spring Framework、Apache POI 等依赖；升级前核对官方安全公告、支持状态和兼容性。*（Go 侧 `govulncheck` 可达漏洞 0 个，工具链钉在 go1.26.9；前端 `pnpm audit` 由 17 条降为 2 条 dev-only；Java 依赖未动。详见 docs/SECURITY-BASELINE.md §10）*
 - [ ] 提供不含真实业务数据的 schema 初始化方案或迁移脚本，并与演示数据、生产数据分开管理。*（Go 侧已提供 `internal/database/migrations/` 与 `cmd/migrate`，不含业务数据）*
-- [ ] 对齐 Windows/Linux 启动脚本的端口、路径、环境变量和健康检查；明确所需运行时资源，避免默认对公网开放服务。*（Linux 侧已提供 `bin-linux/3b-go-api.sh`：读 `data/go-api.env`、自动编译与迁移、校验 `/health/ready`，默认只监听 127.0.0.1；Windows 侧仍为手工 `go run`）*
-- [ ] 为对象级授权、密码重置、敏感日志、管理权限、限流和上传策略增加回归验证，并在 CI 中运行。*（当前只有构建、静态检查与一次性逻辑验证，尚无 CI 用例集）*
+- [ ] 对齐 Windows/Linux 启动脚本的端口、路径、环境变量和健康检查；明确所需运行时资源，避免默认对公网开放服务。*（Linux 侧 `bin-linux/3b-go-api.sh`、Windows 侧 `3b-go-api.bat`/`3b-go-api.ps1` 已对齐：读同一份 `data\go-api.env`、有 go 工具链就编译、先迁移后起服务、校验 `/health/ready`、默认只监听 127.0.0.1、日志与 pid 落在 `data\`；`start-all.bat` 在存在 env 文件时一并拉起，`stop-all.bat` 一并停掉，并把写死的 8080 改成实际的 12501。仍未对齐：`3-backend.bat` 依赖 `runtime\jdk8` 与已构建 jar（当前检出里都不存在）、`使用说明.txt` 仍写后端 8080、Windows 侧没有与 `bin-linux/1-mysql.sh`、`5-init-db.sh` 等价的数据库准备脚本）*
+- [ ] 为对象级授权、密码重置、敏感日志、管理权限、限流和上传策略增加回归验证，并在 CI 中运行。*（已完成首次真库端到端验证：11 个迁移 + 36 项检查全部通过，见 docs/VERIFICATION-RESULTS.md；但验证程序是一次性的，尚未固化为 CI 用例集）*
 
 ## P2：改进项
 
