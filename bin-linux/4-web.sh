@@ -6,7 +6,7 @@
 #
 #   WEB_MODE=preview（默认，给真实用户用）
 #       先构建 → 用 `vite preview` 伺服 dist 里的生产产物。
-#       公网首屏只有 4~5 个请求、gzip 后约 200KB（见 PORTING-LINUX.md 第十一节）。
+#       公网首屏只有 4~5 个请求、gzip 后约 200KB（可用 vite build 产物直接对比）。
 #       dist 比源码旧时会自动重建，所以改完代码直接重跑本脚本即可。
 #
 #   TLS（默认关闭）：WEB_TLS=1 时用 data/tls/server.{crt,key} 起 HTTPS。

@@ -16,7 +16,7 @@ import type { ApiResult } from '@/types/api';
  *   管理后台的实例（@/api/request）会把 admin token 塞进所有请求头，
  *   两者共用必然互相污染。所以这里自带实例 + 自带 token + 自带拦截器。
  *
- * 后端契约见 docs/CUSTOMER-API.md：
+ * 后端契约（实现见 tutor/tutor-api/internal/httpapi/customer_*，接口清单见根 README 第二节）：
  *   成功 → 200 { code:200, msg, data }      业务失败 → 200 { code:400, msg }
  *   未登录 → 401 { code:401, msg }          越权  → 403 { code:403, msg }
  * ------------------------------------------------------------------ */

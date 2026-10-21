@@ -285,7 +285,6 @@ Go 服务（`data/go-api.env`，不入库）：
 | [docs/SECURITY-BASELINE.md](docs/SECURITY-BASELINE.md) | 等保 2.0 控制项逐条对照、部署方须补齐的证据、依赖扫描记录 |
 | [docs/DATA-PRIVACY.md](docs/DATA-PRIVACY.md) | 个人信息清单、告知同意、删除权、可携带权、未成年人章节 |
 | [docs/VERIFICATION-RESULTS.md](docs/VERIFICATION-RESULTS.md) | 每次验证的环境、命令、结果与未验证项 |
-| [docs/CUSTOMER-API.md](docs/CUSTOMER-API.md) | 客户侧接口早期契约说明；与 Go 实现的差异以本文第二节为准 |
 | [docs/adr/](docs/adr) | 架构决策记录（0001 Web-first Go 重写、0002 原生 Go 管理员认证） |
 | [tutor/tutor-api/README.md](tutor/tutor-api/README.md) | Go 服务细节：配置、路由、认证、迁移、导入 |
 | [TODO.md](TODO.md) | 未完成事项与进度 |
