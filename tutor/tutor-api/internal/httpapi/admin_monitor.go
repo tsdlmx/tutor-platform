@@ -245,22 +245,33 @@ func workingDirectory() string {
 	return directory
 }
 
-// primaryIPv4 returns the first non-loopback IPv4 address of the host.
+// primaryIPv4 returns the host's usable IPv4 address. Loopback and IPv4
+// link-local (169.254.0.0/16) addresses are skipped: on a machine with an
+// unconfigured adapter the link-local address is enumerated first and would
+// otherwise be reported as the server address.
 func primaryIPv4() string {
 	addresses, err := net.InterfaceAddrs()
 	if err != nil {
 		return ""
 	}
+	fallback := ""
 	for _, address := range addresses {
 		network, ok := address.(*net.IPNet)
-		if !ok || network.IP.IsLoopback() {
+		if !ok || network.IP.IsLoopback() || network.IP.IsLinkLocalUnicast() {
 			continue
 		}
-		if ipv4 := network.IP.To4(); ipv4 != nil {
+		ipv4 := network.IP.To4()
+		if ipv4 == nil {
+			continue
+		}
+		if ipv4.IsPrivate() || ipv4.IsGlobalUnicast() {
 			return ipv4.String()
 		}
+		if fallback == "" {
+			fallback = ipv4.String()
+		}
 	}
-	return ""
+	return fallback
 }
 
 func roundTo(value float64, decimals int) float64 {

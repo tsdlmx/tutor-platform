@@ -102,7 +102,7 @@ const NAV_GROUPS: AdminNavGroup[] = [
     items: [
       { to: '/admin/logininfor', label: '登录日志', hint: '登录记录与来源', icon: FileClock },
       { to: '/admin/operlog', label: '操作日志', hint: '后台操作审计', icon: ClipboardList },
-      { to: '/admin/server', label: '服务监控', hint: 'CPU / 内存 / JVM', icon: Server },
+      { to: '/admin/server', label: '服务监控', hint: 'CPU / 内存 / 运行时', icon: Server },
     ],
   },
   {
