@@ -1,132 +1,299 @@
-<h1 align="center">Tutor Platform</h1>
+# Tutor Platform（内部协作仓库）
 
-<p align="center">家教预约与管理平台</p>
+家教撮合平台：学生发布需求、老师申请联系、双方在广场交流，运营侧有管理后台。
 
-<p align="center">
-  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License">
-  <img src="https://img.shields.io/badge/Backend-3.9.0-blue.svg" alt="Backend version">
-  <img src="https://img.shields.io/badge/Web-1.0.0-2563EB.svg" alt="Web version">
-  <img src="https://img.shields.io/badge/Status-Development-orange.svg" alt="Development status">
-</p>
+**当前状态**：Web 后端已从 Java + MySQL 迁移到 **Go + GORM + PostgreSQL**，React 管理台与 H5 客户端的全部请求只发往 Go 服务。Java 后端仍保留在仓库中，但**已没有任何客户端依赖它**，仅作为回滚路径。小程序端是静态样张，不部署。
 
-## 项目简介
+本文档面向内部协作：接口清单、已实现功能、边界与验证现状。部署细节见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。
 
-Tutor Platform 提供家教业务的管理后台与客户端代码。仓库包含 Spring Boot 后端、React Web 前端，以及基于 uni-app 的移动端项目。
+---
 
-项目仍在开发中。首次运行前需要自行准备数据库和 Redis，并配置本地环境变量。
+## 一、怎么跑起来
 
-## 项目结构
+### 1. Go Web API（后端）
 
-| 目录 | 说明 |
-| --- | --- |
-| tutor/tutor-admin | Spring Boot 应用入口与管理/API 服务 |
-| tutor/tutor-* | 后端 Maven 模块 |
-| tutor/tutor-web | React、TypeScript、Vite Web 前端 |
-| tutor/tutor-uniapp | Vue 3、uni-app 移动端项目 |
-| bin-linux | Linux 启动和部署脚本 |
-| docs | 项目文档 |
+需要 PostgreSQL 与 Redis。
 
-## 技术栈
+```powershell
+# 配置：从模板复制到 data/go-api.env（该目录已被 .gitignore 排除，绝不提交）
+Set-Location D:\tutor-platform
+Copy-Item tutor\tutor-api\.env.example data\go-api.env
+# 编辑 data/go-api.env，至少填 DATABASE_DSN / JWT_SECRET / REDIS_ADDR / PRIVACY_POLICY_VERSION
 
-| 部分 | 技术 |
-| --- | --- |
-| 后端 | Java 8、Spring Boot 2.5、Maven |
-| Web 前端 | React 18、TypeScript、Vite、pnpm |
-| 移动端 | Vue 3、uni-app |
-| 数据存储 | MySQL、Redis |
+# 一键：编译 → 迁移 → 起服务 → 校验 /health/ready（Windows）
+.\3b-go-api.bat
 
-## 环境准备
+# Linux 部署机等价命令
+bash bin-linux/3b-go-api.sh
+```
 
-- JDK 8
-- Maven
-- Node.js 18 或更高版本，并启用 Corepack
-- pnpm 9（由仓库锁文件指定）
-- MySQL 和 Redis
+手工等价步骤：
 
-当前本地配置默认连接 localhost:3307 上的 tutor 数据库，以及 localhost:6379 上的 Redis；后端监听 12501 端口。
+```powershell
+Set-Location tutor\tutor-api
+$env:DATABASE_DSN = 'postgres://user:pass@127.0.0.1:5432/tutor?sslmode=disable'
+$env:JWT_SECRET   = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+$env:REDIS_ADDR   = '127.0.0.1:6379'
+$env:PRIVACY_POLICY_VERSION = '2026-10-21'
+go run ./cmd/migrate    # 11 个版本化迁移，幂等
+go run ./cmd/server     # 默认监听 127.0.0.1:12501
+```
 
-## 配置后端环境变量
+### 2. Web 前端
 
-后端启动需要数据库账号、Redis 密码和 JWT 密钥。以下值仅为占位符，请在本机替换为自己的配置，不要提交真实凭据：
-
-~~~powershell
-$env:DB_USERNAME = "<local-db-user>"
-$env:DB_PASSWORD = "<local-db-password>"
-$env:REDIS_PASSWORD = "<local-redis-password>"
-$env:JWT_SECRET = "<64-character-hex-secret>"
-~~~
-
-应用配置注释约定 JWT 密钥使用 64 位十六进制字符串。数据库和 Redis 必须已启动，数据库 schema 也必须已经初始化。
-
-## 构建和运行后端
-
-在仓库根目录执行：
-
-~~~powershell
-mvn -f .\tutor\pom.xml -pl tutor-admin -am package
-~~~
-
-构建完成后，在同一个 PowerShell 会话设置前述环境变量，然后启动应用：
-
-~~~powershell
-java -jar .\tutor\tutor-admin\target\tutor-admin.jar
-~~~
-
-## 启动 Web 前端
-
-先启动后端，再在另一个 PowerShell 窗口执行：
-
-~~~powershell
-Set-Location D:/tutor-platform/tutor/tutor-web
+```powershell
+Set-Location tutor\tutor-web
 corepack pnpm install --frozen-lockfile
 corepack pnpm dev -- --host 127.0.0.1 --port 12500
-~~~
+```
 
-开发服务器把 `/dev-api` 代理到仍在使用的 Java 服务（`VITE_PROXY_TARGET`），把 `/web-api`（客户 Web）和 `/admin-api`（已迁移的管理接口与管理员登录）代理到 Go 服务（`VITE_WEB_API_PROXY_TARGET`、`VITE_ADMIN_API_PROXY_TARGET`）。三个目标默认都指向 127.0.0.1:12501，切分部署时需要分别指定。本地访问地址为 http://127.0.0.1:12500。
+打开 http://127.0.0.1:12500/admin/login（管理后台）或 http://127.0.0.1:12500/（客户侧）。
 
-构建前端：
+Vite 把 `/web-api`、`/admin-api` 代理到 Go 服务，目标由 `VITE_WEB_API_PROXY_TARGET`、`VITE_ADMIN_API_PROXY_TARGET` 指定（默认 `http://127.0.0.1:12501`）。
 
-~~~powershell
-corepack pnpm build
-~~~
+### 3. 健康检查
 
-预览构建结果：
+| 接口 | 说明 |
+| --- | --- |
+| `GET /health/live` | 进程存活 |
+| `GET /health/ready` | PostgreSQL + Redis 就绪（各 2 秒超时） |
 
-~~~powershell
-corepack pnpm preview
-~~~
+---
 
-预览服务器默认使用 4173 端口。
+## 二、接口清单
 
-## 迁移后的 Go Web API
+统一响应信封 `{code, msg, data}`；分页列表为 `{code, msg, total, rows}`。错误用 HTTP 状态码 + `code` 表示（400/401/403/404/409/413/429/500）。
 
-Web 后端已从 Java + MySQL 迁移到 Go + GORM + PostgreSQL，前端页面保持不变；React 管理台与 H5 客户端的全部请求都发往 Go 服务（构建产物中不含 `/dev-api`、`/prod-api`），Java 后端目前只作为回滚路径保留。Go 服务位于 `tutor/tutor-api`，需要 PostgreSQL 与 Redis：
+鉴权方式：
 
-~~~powershell
-Set-Location D:/tutor-platform/tutor/tutor-api
-$env:DATABASE_DSN = 'postgres://...'   # 同时需要 JWT_SECRET、REDIS_ADDR、PRIVACY_POLICY_VERSION
-go run ./cmd/migrate
-go run ./cmd/server
-~~~
+- **管理员**：`Authorization: Bearer <token>`，由 `POST /login` 签发（HS512 + Redis 会话）。每个请求重新加载账号状态、角色与菜单权限，因此停权/收权立即生效。表里"权限"列的字符串即所需菜单权限，`—` 表示登录即可。
+- **客户会话**：`Authorization: Bearer <token>`，由 `POST /customer/auth/login` 签发（会话落 PostgreSQL，可吊销）。
+- **公开**：无需令牌。
 
-Linux 部署机上可改用 `bash bin-linux/3b-go-api.sh`（编译 + 迁移 + 探活，配置读 `data/go-api.env`）。
+### 2.1 管理员认证与自服务
 
-Windows 上双击 `3b-go-api.bat`（等价于上面那条命令）：读同一份 `data\go-api.env`，有 go 工具链就现场编译，先跑迁移再起服务，最后校验 `/health/ready`。常用开关：`-Port 12501`（切到正式端口）、`-SkipBuild`（复用 `runtime\tutor-api.exe`）、`-Stop`（按 pid 文件停止）。未设置 `HTTP_ADDR` 时默认只监听 `127.0.0.1:12502`，日志写 `data\logs\go-api.log`，pid 写 `data\pids\go-api.pid`。`start-all.bat` 检测到 `data\go-api.env` 时会一并拉起它，`stop-all.bat` 会一并停掉。
+| 方法 | 路径 | 认证 | 权限 | 说明 |
+| --- | --- | --- | --- | --- |
+| GET | `/captchaImage` | 公开 | — | 登录验证码，返回 `{captchaEnabled, uuid, img}`；配置关闭时 `captchaEnabled=false` |
+| POST | `/login` | 公开 | — | `{username, password, code, uuid}` → `{token}`；有失败锁定与限流 |
+| GET | `/getInfo` | 管理员 | — | 当前账号 + 角色 + 权限 |
+| POST | `/logout` | 公开 | — | 删除服务端会话，幂等 |
+| GET | `/system/user/profile` | 管理员 | — | 个人信息（含 roleGroup） |
+| PUT | `/system/user/profile` | 管理员 | — | 改昵称/邮箱/手机/性别，含唯一性校验 |
+| PUT | `/system/user/profile/updatePwd` | 管理员 | — | 改密码，**校验旧密码**，成功后撤销该账号其他会话 |
 
-`data\go-api.env` 含真实的 `DATABASE_DSN` 与 `JWT_SECRET`，已在 `.gitignore` 中排除，不要提交。
+### 2.2 管理端业务
 
-配置项、已迁移路由、管理员认证与告知同意/注销流程、数据库与旧 MySQL 数据导入流程见 [tutor/tutor-api/README.md](tutor/tutor-api/README.md)；迁移决策见 `docs/adr`；部署拓扑、端口分配、最小权限数据库账号与切换/回滚步骤见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)；等保与隐私基线见 [docs/SECURITY-BASELINE.md](docs/SECURITY-BASELINE.md) 与 [docs/DATA-PRIVACY.md](docs/DATA-PRIVACY.md)；上线前验收见 `scripts/verify.sh`，已执行过的验证与结果见 [docs/VERIFICATION-RESULTS.md](docs/VERIFICATION-RESULTS.md)。
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/system/user/list` | `system:user:list` | 系统用户列表（按 legacy 部门数据范围过滤） |
+| GET | `/system/role/list` | `system:role:list` | 角色列表 |
+| GET | `/system/tutorInfo/list` | `system:tutor:list` | 家教档案列表（审核入口） |
+| GET | `/system/tutorInfo/{tutorID}` | `system:tutor:query` | 家教详情 |
+| PUT | `/system/tutorInfo/audit` | `system:tutor:edit` | 审核通过/拒绝；**写操作与审计行同事务** |
+| DELETE | `/system/tutorInfo/{tutorIDs}` | `system:tutor:remove` | 批量删除（逗号分隔） |
+| GET | `/system/userPost/list` | `system:userPost:list` | 帖子列表 |
+| GET | `/system/userPost/pendingCount` | `system:userPost:list` | 待审核数量 |
+| PUT | `/system/userPost/audit` | `system:userPost:audit` | 帖子审核 |
+| GET | `/system/customerAccount/list` | `system:customerAccount:list` | 客户账号列表 |
+| GET | `/system/customerAccount/{accountID}` | `system:customerAccount:query` | 客户账号详情 |
+| PUT | `/system/customerAccount/status` | `system:customerAccount:edit` | 启用/停用 |
+| GET | `/system/wxUser/list` | `system:wxUser:list` | 微信历史用户（只读） |
+| GET | `/system/wxUser/{userID}` | `system:wxUser:query` | 微信历史用户详情（只读） |
 
-## 当前限制
+### 2.3 监控与审计
 
-- 源码仓库不包含运行时依赖包和预构建产物；相关启动脚本不能单靠全新克隆直接完成部署。
-- 仓库目前没有不含业务数据的独立数据库初始化方案。请先准备干净的 schema 和本地数据；不要将真实业务数据或生产凭据提交到仓库。
-- Linux 脚本的路径、端口、运行依赖与 Windows 开发步骤不同，部署前需要核对对应脚本和环境配置。
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/monitor/online/list` | `monitor:online:list` | 在线会话（读 Redis `login_tokens:*`） |
+| DELETE | `/monitor/online/{tokenID}` | `monitor:online:forceLogout` | 强制下线；不允许踢自己 |
+| GET | `/monitor/logininfor/list` | `monitor:logininfor:list` | 登录审计（读 `sys_login_audit`，账号筛选按掩码匹配） |
+| GET | `/monitor/operlog/list` | `monitor:operlog:list` | 操作审计（读 `sys_oper_log`，只含安全元数据） |
+| GET | `/monitor/server` | `monitor:server:list` | 宿主机 CPU/内存/磁盘（3 秒缓存）+ Go 运行时 + 数据库连接池 |
 
-## 待办
+### 2.4 客户 Web（H5）
 
-优先处理上线前的安全事项、数据库初始化方式和启动脚本的一致性。详细清单见 [TODO.md](TODO.md)。
+| 方法 | 路径 | 认证 | 说明 |
+| --- | --- | --- | --- |
+| POST | `/customer/auth/send-code` | 公开 | 注册验证码（限流；未配 SMTP 时返回 503） |
+| POST | `/customer/auth/send-reset-code` | 公开 | 找回密码验证码（未注册邮箱也返回成功，防枚举） |
+| POST | `/customer/auth/reset-password` | 公开 | 用验证码重置密码，成功后撤销该账号全部会话 |
+| POST | `/customer/auth/register` | 公开 | 注册；**必须传 `consent: true`**，同意记录含政策版本 |
+| POST | `/customer/auth/login` | 公开 | 邮箱登录；失败有锁定与限流 |
+| GET | `/customer/auth/me` | 客户会话 | 当前账号 |
+| PUT | `/customer/auth/role` | 客户会话 | 选择身份（TEACHER/STUDENT，一次性） |
+| POST | `/customer/auth/logout` | 客户会话 | 退出（吊销会话） |
+| POST | `/customer/auth/delete-account` | 客户会话 | 注销：校验密码后单事务删除账号及本人数据 |
+| GET | `/customer/auth/export` | 客户会话 | 导出本人数据（JSON 附件，不含他人信息） |
+| GET | `/customer/subjects` | 公开 | 学科字典 |
+| GET | `/customer/demands` | 客户会话 | 需求列表 |
+| GET | `/customer/demands/stats` | 客户会话 | 需求统计 |
+| GET | `/customer/demands/applied` | 客户会话 | 已申请的需求 |
+| GET | `/customer/demands/applications` | 客户会话 | 收到的申请 |
+| GET | `/customer/demands/{demandID}` | 客户会话 | 需求详情 |
+| POST | `/customer/demands` | 客户会话 | 发布需求 |
+| PUT | `/customer/demands/{demandID}` | 客户会话 | 修改需求（仅本人） |
+| DELETE | `/customer/demands/{demandID}` | 客户会话 | 删除需求（仅本人） |
+| PUT | `/customer/demands/{demandID}/status` | 客户会话 | 改需求状态 |
+| POST | `/customer/demands/{demandID}/apply` | 客户会话 | 老师申请联系 |
+| GET | `/customer/profile/me` | 客户会话 | 本人主页 |
+| PUT | `/customer/profile` | 客户会话 | 保存老师简历（仅 TEACHER） |
+| GET | `/customer/profile/{accountID}` | 客户会话 | 他人主页（**不含邮箱与最后登录时间**） |
+| GET | `/customer/profile/{accountID}/posts` | 客户会话 | 他人已通过审核的帖子 |
+| GET | `/customer/posts/mine` | 客户会话 | 我的帖子（含未审核） |
+| GET | `/customer/posts/plaza` | 客户会话 | 广场（仅审核通过） |
+| POST | `/customer/posts` | 客户会话 | 发帖（待审核） |
+| DELETE | `/customer/posts/{postID}` | 客户会话 | 删除本人帖子 |
 
-## 许可证
+### 2.5 小程序兼容（只读）
+
+| 方法 | 路径 | 认证 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/miniapp/auth/checkLogin` | 公开 | 读共享会话，返回 `{isLogin, userId}`，给 H5 判断登录态 |
+| GET | `/miniapp/tutor/list` | 公开 | 公开教师目录（**不含联系电话**） |
+| GET | `/miniapp/tutor/detail/{tutorID}` | 公开 | 公开教师详情（**含联系电话**，供联系动作） |
+
+---
+
+## 三、已实现的功能
+
+**客户侧（H5 / 响应式）**：邮箱注册（需验证码 + 同意政策）、登录、找回密码、选择身份、老师简历编辑、需求发布/编辑/删除/状态流转、老师申请联系、需求池与我的需求、帖子发布与我的帖子、广场、他人主页、公开教师列表与详情、账号注销、数据导出、退出。
+
+**运营侧（管理后台）**：管理员登录（验证码 + 失败锁定）、个人信息与改密、数据概览、家教档案审核（通过/拒绝/删除）、帖子审核与待审计数、入驻老师/学生账号查询与启停、系统用户与角色列表、在线会话与强制下线、登录日志、操作日志、服务监控。
+
+**平台侧**：PostgreSQL 版本化迁移（11 个）、旧 MySQL 一次性导入工具（预检 + `--apply`）、结构化日志（JSON，不记敏感值）、健康探针、优雅退出、登录审计与操作审计（只追加）。
+
+---
+
+## 四、边界（明确不做什么）
+
+### 4.1 仍在 Java 的接口
+
+这些接口**当前没有前端页面调用**，因此没有迁移；Java 服务退役时一并消失。若将来要用，按 Go 侧契约重新实现，**不要回挂 `/dev-api`**。
+
+`/system/user/**`（用户增改删与详情）、`/system/role/**`（角色增改删与数据权限）、`/system/dept/**`、`/system/menu/**`、`/system/dict/**`、`/system/config/**`、`/system/notice/**`、`/system/post/**`、`/system/parentInfo/**`、`/system/studentInfo/**`、`/monitor/cache/**`、`/common/**`（上传）、`/miniapp/auth/**`（微信登录）、`/miniapp/parent/**`、`/miniapp/teacher/**`、`/miniapp/tutor/**` 的业务写接口、`/test/user/**`。
+
+### 4.2 不在本次范围
+
+- **小程序（uni-app）**：仓库里的 `tutor/tutor-uniapp` 只有 3 个页面、没有 `package.json`、没有任何 `uni.request` 调用、首页是硬编码假数据、AppID 已清空——是不部署的静态样张，不参与上线。
+- **导出格式互通**：导出为内部 JSON（`schemaVersion: "1"`），不承诺与第三方格式兼容。
+- **多租户 / 组织隔离**：没有租户概念，全部客户在同一数据面内。
+- **国际化**：仅中文。
+- **支付 / 财务**：代码中没有相关实现。
+
+### 4.3 已知限制
+
+| 项 | 现状 |
+| --- | --- |
+| 未成年人注册 | 没有年龄段识别与监护人同意。上线前需法务/运营决定"限制未成年人"或"补监护人同意流程"（见 `docs/DATA-PRIVACY.md` §6） |
+| 旧数据导入 | `cmd/import-legacy` 只在合成数据上验证过逻辑，**从未对真实 MySQL 跑过**；切库前必须在预发库跑只读预检并核对行数 |
+| 真实证书 TLS | `deploy/nginx/tutor.conf` 验证时用自签证书；真实证书链与 OCSP 需部署环境复核 |
+| 生产容量 | 只做过 50 并发冒烟（见验证记录），限流与锁定阈值需按真实流量校准 |
+| 上传 | 上传仍由 Java `/common/**` 提供；文件类型校验与内容隔离未在 Go 侧实现 |
+| 双因素认证 | 未实现（若定级要求需补） |
+| Java 依赖 | Spring Boot 2.5 / POI 等老依赖未做漏洞扫描，随 Java 退役消解 |
+
+---
+
+## 五、数据与迁移
+
+- 权威库：PostgreSQL。迁移文件在 `tutor/tutor-api/internal/database/migrations/`，命名 `NNNNNN_name.sql`，由 `cmd/migrate` 按序应用（advisory lock + checksum，改历史文件会被拒绝）。
+- 关键表：`sys_user` / `sys_user_auth`（管理员与 BCrypt 哈希分离）、`sys_role` / `sys_user_role` / `sys_role_menu` / `sys_menu` / `sys_dept`（RBAC 与数据范围）、`sys_oper_log`（操作审计）、`sys_login_audit`（登录审计）、`sys_admin_auth_config`（验证码开关/登录黑名单）、`t_customer_account` / `t_customer_session` / `t_customer_consent`、`t_teacher_profile`、`t_student_demand` / `t_demand_apply`、`t_user_post`、`t_tutor_info` / `t_tutor_qualification`、`t_wx_user` / `t_parent_info`（历史数据）。
+- 审计表在应用侧**只追加**：没有修改/删除/清空接口，归档由运维定时执行。
+- 旧 MySQL：仅作迁移来源与回滚路径，导入流程见 `docs/DEPLOYMENT.md` §5。
+
+---
+
+## 六、配置项
+
+Go 服务（`data/go-api.env`，不入库）：
+
+| 变量 | 必填 | 说明 |
+| --- | --- | --- |
+| `DATABASE_DSN` | 是 | PostgreSQL 连接串 |
+| `JWT_SECRET` | 是 | ≥32 字节；生产环境拒绝文档占位值 |
+| `REDIS_ADDR` / `REDIS_PASSWORD` | 是 / 视环境 | 会话、验证码、限流 |
+| `PRIVACY_POLICY_VERSION` | 生产必填 | 注册同意记录里存这个版本号 |
+| `HTTP_ADDR` | 否 | 默认 `127.0.0.1:12501` |
+| `TRUSTED_PROXY_CIDRS` | 否 | 只填自建反代网段；为空则完全忽略转发头 |
+| `CORS_ALLOWED_ORIGINS` | 否 | 留空 = 仅同源；生产拒绝通配符 |
+| `TLS_CERT_FILE` / `TLS_KEY_FILE` | 否 | 进程直接终止 TLS 时成对填写 |
+| `SMTP_*` | 否 | 未配置时注册/找回验证码返回 503（安全失败） |
+| `LEGACY_MYSQL_DSN` | 否 | 仅 `cmd/import-legacy` 使用，必须是只读账号 |
+
+前端构建期变量：`VITE_CUSTOMER_API_BASE_URL`、`VITE_WEB_API_PROXY_*`、`VITE_ADMIN_API_PROXY_*`、`VITE_PRIVACY_POLICY_URL`、`VITE_ASSET_BASE_URL`、`VITE_USE_MOCK`。
+
+前端**没有默认后端前缀**：每个请求必须显式给 `/web-api` 或 `/admin-api`；漏写会打到同源直接 404，不会静默回落到 Java。
+
+---
+
+## 七、端口
+
+| 用途 | 端口 |
+| --- | --- |
+| Go Web API | 12501（默认）；与 Java 并存期用 12502 |
+| Java 后端（回滚路径） | 12501 |
+| Web 开发服务器 | 12500；`vite preview` 4173 |
+| PostgreSQL | 5432 |
+| Redis | 6379 |
+| MySQL（历史数据） | 3307 |
+
+---
+
+## 八、脚本
+
+| 脚本 | 用途 |
+| --- | --- |
+| `3b-go-api.bat` / `3b-go-api.ps1` | Windows：读 `data\go-api.env`、检查 PG/Redis、编译、迁移、起服务、校验 `/health/ready`；`-Port/-SkipBuild/-Stop` |
+| `bin-linux/3b-go-api.sh` | Linux 等价脚本 |
+| `bin-linux/0-start-all.sh` | 一键起 MySQL/Redis/Java/前端；存在 `data/go-api.env` 时一并起 Go |
+| `bin-linux/9-stop-all.sh` | 停止全部（含 go-api） |
+| `scripts/verify.sh` | 上线前验收：Go 构建/vet/gofmt、govulncheck、迁移命名、前端冻结安装/类型检查/构建、产物不得残留 `/dev-api`、依赖审计 |
+| `.github/workflows/verify.yml` | CI：`verify` 跑验收脚本；`migrate` 起 postgres:16 连跑两次迁移验幂等 |
+
+---
+
+## 九、安全与隐私（摘要）
+
+- 响应头：`nosniff`、`X-Frame-Options: DENY`、`CSP`、`Referrer-Policy: no-referrer`、`Cache-Control: no-store`，TLS 时附 HSTS；nginx 侧另有一份（见 `deploy/`）。
+- 会话：管理员 24 小时、剩余不足 20 分钟续期，退出即删；客户 24 小时可吊销，改密/注销即失效。
+- 登录防护：验证码（可配置）、失败锁定（管理员 5 次/15 分钟、客户 10 次/10 分钟）、按地址限流；错误提示不区分账号是否存在。
+- 审计：`sys_login_audit` 记登录/注册/改密/注销（只存掩码标识、地址、固定原因码）；`sys_oper_log` 记管理写操作（白名单元数据）。
+- 隐私：注册强制同意并记录政策版本；注销单事务删除本人全部数据；导出只含本人数据；公开教师列表不返回联系电话；他人主页不返回邮箱与最后登录时间。
+- 等保对照与上线阻断清单见 [docs/SECURITY-BASELINE.md](docs/SECURITY-BASELINE.md)；个人信息清单与保留策略见 [docs/DATA-PRIVACY.md](docs/DATA-PRIVACY.md)。
+
+---
+
+## 十、验证现状
+
+已执行并通过（细节、命令与未验证项见 [docs/VERIFICATION-RESULTS.md](docs/VERIFICATION-RESULTS.md)）：
+
+| 验证 | 规模 |
+| --- | --- |
+| 迁移（真实 PostgreSQL 16.2） | 11 个迁移全部应用，重复执行幂等 |
+| 接口端到端（真实库 + 真实 HTTP） | 36 项 |
+| 浏览器回归（真实 Chrome，CDP 驱动） | 31 项 |
+| 部署产物（真实 nginx 1.30.6） | 13 项 |
+| 数据导出（含"不泄漏他人数据"断言） | 20 项 |
+| 并发压测 | 9 项（50 并行读、20 并行写、40 并行错误口令，无 5xx） |
+
+---
+
+## 十一、文档索引
+
+| 文档 | 内容 |
+| --- | --- |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | 部署拓扑、端口分配、最小权限数据库账号、nginx/systemd/logrotate 安装、切换与回滚 |
+| [docs/SECURITY-BASELINE.md](docs/SECURITY-BASELINE.md) | 等保 2.0 控制项逐条对照、部署方须补齐的证据、依赖扫描记录 |
+| [docs/DATA-PRIVACY.md](docs/DATA-PRIVACY.md) | 个人信息清单、告知同意、删除权、可携带权、未成年人章节 |
+| [docs/VERIFICATION-RESULTS.md](docs/VERIFICATION-RESULTS.md) | 每次验证的环境、命令、结果与未验证项 |
+| [docs/CUSTOMER-API.md](docs/CUSTOMER-API.md) | 客户侧接口早期契约说明；与 Go 实现的差异以本文第二节为准 |
+| [docs/adr/](docs/adr) | 架构决策记录（0001 Web-first Go 重写、0002 原生 Go 管理员认证） |
+| [tutor/tutor-api/README.md](tutor/tutor-api/README.md) | Go 服务细节：配置、路由、认证、迁移、导入 |
+| [TODO.md](TODO.md) | 未完成事项与进度 |
+
+---
+
+## 十二、许可证
 
 本项目使用 [MIT License](tutor/LICENSE)。
