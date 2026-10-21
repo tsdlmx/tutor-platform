@@ -12,7 +12,7 @@
 
 | 控制项 | 状态 | 说明 |
 | --- | --- | --- |
-| 通信传输完整性与保密性 | 平台/运维承担 | 进程支持直接 TLS（`TLS_CERT_FILE` / `TLS_KEY_FILE`）；若在反代终止 TLS，反代必须强制 HTTPS，生产环境启动时会打印明文监听告警。 |
+| 通信传输完整性与保密性 | 平台/运维承担 | 进程支持直接 TLS（`TLS_CERT_FILE` / `TLS_KEY_FILE`）；仓库另提供 `deploy/nginx/tutor.conf`（TLS1.2/1.3、HSTS、强制跳转）并已用 nginx 1.30.6 实测；生产环境以明文监听启动时会打印告警。 |
 | 仅经受信任代理获取客户端地址 | 已实现 | `TRUSTED_PROXY_CIDRS` 为空时完全忽略 `X-Forwarded-For`；非可信来源直接使用连接地址。 |
 | 避免在公网直接暴露后端端口 | 平台/运维承担 | 默认监听 `127.0.0.1:12501`；部署应保证只有反代可达。 |
 
@@ -80,7 +80,7 @@
 
 ## 8. 部署方必须补齐的证据（上线阻断）
 
-1. 全站强制 HTTPS，`TLS1.2+`，配置 HSTS；反代把 `/web-api`、`/admin-api` 指向 Go 服务，`/dev-api` 仍指向 Java。
+1. 全站强制 HTTPS（`TLS1.2+`）与 HSTS：仓库已提供 `deploy/nginx/tutor.conf`（80→443 跳转、HSTS、CSP、安全头、登录限流）并实测通过，部署方需替换域名/证书路径并签发证书。
 2. 数据库使用独立最小权限账号：应用账号对业务表 `SELECT/INSERT/UPDATE/DELETE`，对 `sys_login_audit`、`sys_oper_log` 只授 `SELECT/INSERT`，禁止 `UPDATE/DELETE/TRUNCATE`。
 3. `JWT_SECRET` 使用 64 位十六进制随机串并纳入密钥管理，不写入镜像与仓库。
 4. 审计与日志留存 ≥ 6 个月，配置归档与告警（登录失败激增、审计写入失败）。

@@ -128,6 +128,46 @@ bash bin-linux/4-web.sh
 
 Windows 开发机用 `3b-go-api.bat`（实现是同目录的 `3b-go-api.ps1`），行为与 `3b-go-api.sh` 对齐：同样读 `data\go-api.env`，有 go 工具链就编译，先应用迁移再起服务，最后校验 `/health/ready`；日志写 `data\logs\go-api.log`，pid 写 `data\pids\go-api.pid`。端口以 env 文件里的 `HTTP_ADDR` 为准（未设置时默认只监听 `127.0.0.1:12502`），`-Port 12501` 用于切到正式端口，`-SkipBuild` 复用已有二进制，`-Stop` 停止。`start-all.bat` 在存在 `data\go-api.env` 时会一并拉起，`stop-all.bat` 会一并停掉。
 
+## 5.1 生产部署产物（nginx + systemd）
+
+仓库提供两份可直接落地的配置，替代"`vite preview` 当生产入口 + `setsid nohup` 拉进程"的临时做法：
+
+| 文件 | 用途 |
+| --- | --- |
+| `deploy/nginx/tutor.conf` | 站点配置：80→443 跳转、TLS1.2/1.3、HSTS、安全响应头与 CSP、SPA 兜底、静态长缓存、`/web-api` 与 `/admin-api` 反代（剥前缀）、登录接口单独限流、拒绝点文件 |
+| `deploy/nginx/snippets/tutor-proxy.conf` | 反代公共参数（转发头、超时、`Connection ""`） |
+| `deploy/nginx/snippets/tutor-headers.conf` | 公共安全响应头（见下方注意事项） |
+| `deploy/systemd/tutor-api.service` | 进程守护：`EnvironmentFile` 读密钥、`Restart=always`、`ProtectSystem=strict` 等沙箱项、日志进 journald、`SIGTERM` 优雅退出 |
+
+安装（Ubuntu/Debian 系示例）：
+
+```bash
+sudo install -d /srv/tutor-web /srv/tutor-api/var /etc/nginx/snippets
+sudo cp -r tutor/tutor-web/dist/* /srv/tutor-web/
+sudo install -m 0644 deploy/nginx/tutor.conf /etc/nginx/conf.d/tutor.conf
+sudo install -m 0644 deploy/nginx/snippets/*.conf /etc/nginx/snippets/
+sudo install -m 0644 deploy/systemd/tutor-api.service /etc/systemd/system/
+
+# 配置里的 tutor.example.com 与证书路径要换成自己的
+sudo nginx -t && sudo systemctl reload nginx
+
+sudo useradd --system --home /srv/tutor-api --shell /usr/sbin/nologin tutor-api
+sudo install -o tutor-api -g tutor-api -m 0600 data/go-api.env /srv/tutor-api/go-api.env
+sudo install -o tutor-api -g tutor-api -m 0755 runtime/tutor-api /srv/tutor-api/tutor-api
+sudo install -o tutor-api -g tutor-api -m 0755 runtime/tutor-api-migrate /srv/tutor-api/tutor-api-migrate
+sudo systemctl daemon-reload && sudo systemctl enable --now tutor-api
+journalctl -u tutor-api -f
+```
+
+两个坑（都已在本仓库的配置里规避，改动时别踩回去）：
+
+1. **nginx 的 `add_header` 不向下继承**：某一层只要自己写了 `add_header`，父级的全部 `add_header` 都会被丢弃。SPA 外壳由 `location = /index.html`（带 `Cache-Control`）处理，因此公共安全头必须用 `include .../tutor-headers.conf` 在该 location 与 `/assets/` 里再引用一次，否则页面响应会**没有 HSTS/CSP/X-Frame-Options**。
+2. **systemd 单元文件不支持行内注释**：`ProtectSystem=strict  # 说明` 会被当成非法值而**整行失效**（加固项静默不生效）。注释必须单独成行。
+
+验证情况（详见 `docs/VERIFICATION-RESULTS.md`）：`nginx -t` 用 nginx 1.30.6 通过；实际拉起 nginx + 假上游后 13 项功能检查全部通过（跳转、5 个安全头、CSP 内容、SPA 兜底、`index.html` 不缓存、两个前缀剥离开关转发、登录限流返回 503）；`systemd-analyze verify` 通过（只剩"二进制尚未安装"这一预期提示）。
+
+仍需部署方补齐：证书签发（Let's Encrypt 或企业 CA）、`server_name` 与证书路径替换、`logrotate`/journald 保留期、`/srv/tutor-web` 的发版方式（当前脚本仍用 `vite preview`，切到 nginx 后 `4-web.sh` 只负责构建与拷贝 dist）。
+
 手工部署时等价步骤如下：
 
 ```bash
@@ -201,8 +241,8 @@ SKIP_AUDIT=1 bash scripts/verify.sh # 无外网时跳过依赖审计
 
 ## 10. 尚未覆盖
 
-- 仓库没有 systemd/容器编排文件；`bin-linux` 已能拉起 Go Web API（`3b-go-api.sh`，需 `data/go-api.env`），但仍是 `setsid nohup` + pid 文件的方式，没有开机自启与崩溃拉起。Windows 侧（`3b-go-api.bat`）同样是隐藏窗口进程 + pid 文件，也没有守护。
+- 已提供 nginx 站点配置与 systemd 单元（§5.1），但仓库内的启动脚本仍是 `setsid nohup` + pid 文件的方式（无开机自启/崩溃拉起）；生产应改用 §5.1 的 systemd 单元，Windows 侧（`3b-go-api.bat`）同样只是隐藏窗口进程。
 - Go 进程的日志由 `data/logs/go-api.log` 收集，未接入日志轮转；生产需配 logrotate 或日志采集。
-- `vite preview` 不是加固的生产入口：没有 HTTP/2、连接限流与细粒度访问控制，建议上线前补 nginx 配置（TLS1.2+、HSTS、静态资源缓存、`/web-api`、`/admin-api` 转 Go）。
+- `vite preview` 不是加固的生产入口：没有 HTTP/2、连接限流与细粒度访问控制。§5.1 的 nginx 配置已验证可用，上线前应切换过去。
 - 服务监控页已由 Go 提供（宿主机指标 + Go 运行时 + 数据库连接池）；Java 的缓存监控接口没有 React 页面调用，未迁移。
 - 迁移与核心链路已在 PostgreSQL 16.2 上实测通过（见 `docs/VERIFICATION-RESULTS.md`）；`cmd/import-legacy` 对真实 MySQL 的预检与导入尚未验证，首次部署仍必须先在预发库跑一次预检并核对行数。

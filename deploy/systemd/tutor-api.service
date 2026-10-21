@@ -1,0 +1,79 @@
+# ============================================================================
+# 家教 Web API（Go）—— systemd 单元示例
+# ----------------------------------------------------------------------------
+# 安装：
+#   sudo install -D -m 0644 deploy/systemd/tutor-api.service /etc/systemd/system/tutor-api.service
+#   sudo systemctl daemon-reload && sudo systemctl enable --now tutor-api
+#   journalctl -u tutor-api -f
+#
+# 目录约定（部署时自行创建）：
+#   /srv/tutor-api/tutor-api            编译产物（-trimpath 构建）
+#   /srv/tutor-api/tutor-api-migrate    迁移工具，只在变更窗口手工执行
+#   /srv/tutor-api/go-api.env           环境变量文件，权限 0600，属主 tutor-api
+#   /srv/tutor-api/var/                 预留可写目录（当前服务不写文件，日志走 journald）
+#
+# 注意：systemd 单元文件不支持行内注释（`Key=Value  # 说明` 会把注释当成值的一部分
+# 而使该行失效），所以下面的注释都单独成行。
+# ============================================================================
+
+[Unit]
+Description=Tutor Web API (Go)
+Documentation=file:/srv/tutor-api/README.md
+After=network-online.target postgresql.service redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tutor-api
+Group=tutor-api
+WorkingDirectory=/srv/tutor-api
+
+# DATABASE_DSN / JWT_SECRET / REDIS_ADDR / TRUSTED_PROXY_CIDRS / PRIVACY_POLICY_VERSION
+# 都放在这个文件里；权限 0600、属主 tutor-api，不要提交进仓库。
+EnvironmentFile=/srv/tutor-api/go-api.env
+ExecStart=/srv/tutor-api/tutor-api
+
+# 迁移不在启动时执行：避免多实例并发迁移，也让迁移失败留在人工可控的窗口内。
+# 变更窗口里手工跑一次：sudo -u tutor-api /srv/tutor-api/tutor-api-migrate
+Restart=always
+RestartSec=3s
+# 进程收到 SIGTERM 后最多 10 秒完成在途请求，这里留 20 秒兜底
+TimeoutStopSec=20s
+KillMode=mixed
+
+# ---- 权限与沙箱 -----------------------------------------------------------
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+# 整个文件系统只读，只有 ReadWritePaths 列出的目录可写
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+# 纯 Go 构建不需要可写可执行内存；若以后引入需要 W^X 的 cgo 依赖，改成 no
+MemoryDenyWriteExecute=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+LimitNOFILE=65535
+
+# 服务只需要可写 /srv/tutor-api/var（当前仅预留，不写日志文件）
+ReadWritePaths=/srv/tutor-api/var
+
+# ---- 日志 -----------------------------------------------------------------
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tutor-api
+
+[Install]
+WantedBy=multi-user.target
