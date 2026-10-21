@@ -2,7 +2,7 @@
 
 家教撮合平台：学生发布需求、老师申请联系、双方在广场交流，运营侧有管理后台。
 
-**当前状态**：Web 后端已从 Java + MySQL 迁移到 **Go + GORM + PostgreSQL**，React 管理台与 H5 客户端的全部请求只发往 Go 服务。Java 后端仍保留在仓库中，但**已没有任何客户端依赖它**，仅作为回滚路径。小程序端是静态样张，不部署。
+**当前状态**：Web 后端已从 Java + MySQL 迁移到 **Go + GORM + PostgreSQL**，React 管理台与 H5 客户端的全部请求只发往 Go 服务。**Java 后端模块已从 `main` 删除**（旧实现保留在 tag `legacy-java-final`）。小程序端是静态样张，不部署。
 
 本文档面向内部协作：接口清单、已实现功能、边界与验证现状。部署细节见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。
 
@@ -167,11 +167,11 @@ Vite 把 `/web-api`、`/admin-api` 代理到 Go 服务，目标由 `VITE_WEB_API
 
 ## 四、边界（明确不做什么）
 
-### 4.1 仍在 Java 的接口
+### 4.1 随 Java 模块一起移除的接口
 
-这些接口**当前没有前端页面调用**，因此没有迁移；Java 服务退役时一并消失。若将来要用，按 Go 侧契约重新实现，**不要回挂 `/dev-api`**。
+下面这些接口原先只在 Java 侧实现，**没有任何前端页面调用**，因此未迁移。Java 模块已从 `main` 删除，这些能力目前在仓库中不存在；若将来要用，按 Go 侧契约重新实现，**不要回挂 `/dev-api`**。旧实现可从 tag `legacy-java-final` 查看。
 
-`/system/user/**`（用户增改删与详情）、`/system/role/**`（角色增改删与数据权限）、`/system/dept/**`、`/system/menu/**`、`/system/dict/**`、`/system/config/**`、`/system/notice/**`、`/system/post/**`、`/system/parentInfo/**`、`/system/studentInfo/**`、`/monitor/cache/**`、`/common/**`（上传）、`/miniapp/auth/**`（微信登录）、`/miniapp/parent/**`、`/miniapp/teacher/**`、`/miniapp/tutor/**` 的业务写接口、`/test/user/**`。
+`/system/user/**`（用户增改删与详情）、`/system/role/**`（角色增改删与数据权限）、`/system/dept/**`、`/system/menu/**`、`/system/dict/**`、`/system/config/**`、`/system/notice/**`、`/system/post/**`、`/system/parentInfo/**`、`/system/studentInfo/**`、`/monitor/cache/**`、`/common/**`（文件上传）、`/miniapp/auth/**`（微信登录）、`/miniapp/parent/**`、`/miniapp/teacher/**`、`/miniapp/tutor/**` 的写接口、`/test/user/**`。
 
 ### 4.2 不在本次范围
 
@@ -185,13 +185,12 @@ Vite 把 `/web-api`、`/admin-api` 代理到 Go 服务，目标由 `VITE_WEB_API
 
 | 项 | 现状 |
 | --- | --- |
+| 文件上传 | 原先由 Java `/common/**` 提供，随 Java 删除后**项目内没有上传能力**；前端目前也没有图片上传入口，若恢复需要按 Go 契约实现并做类型/内容校验 |
 | 未成年人注册 | 没有年龄段识别与监护人同意。上线前需法务/运营决定"限制未成年人"或"补监护人同意流程"（见 `docs/DATA-PRIVACY.md` §6） |
 | 旧数据导入 | `cmd/import-legacy` 只在合成数据上验证过逻辑，**从未对真实 MySQL 跑过**；切库前必须在预发库跑只读预检并核对行数 |
 | 真实证书 TLS | `deploy/nginx/tutor.conf` 验证时用自签证书；真实证书链与 OCSP 需部署环境复核 |
 | 生产容量 | 只做过 50 并发冒烟（见验证记录），限流与锁定阈值需按真实流量校准 |
-| 上传 | 上传仍由 Java `/common/**` 提供；文件类型校验与内容隔离未在 Go 侧实现 |
 | 双因素认证 | 未实现（若定级要求需补） |
-| Java 依赖 | Spring Boot 2.5 / POI 等老依赖未做漏洞扫描，随 Java 退役消解 |
 
 ---
 
@@ -223,7 +222,7 @@ Go 服务（`data/go-api.env`，不入库）：
 
 前端构建期变量：`VITE_CUSTOMER_API_BASE_URL`、`VITE_WEB_API_PROXY_*`、`VITE_ADMIN_API_PROXY_*`、`VITE_PRIVACY_POLICY_URL`、`VITE_ASSET_BASE_URL`、`VITE_USE_MOCK`。
 
-前端**没有默认后端前缀**：每个请求必须显式给 `/web-api` 或 `/admin-api`；漏写会打到同源直接 404，不会静默回落到 Java。
+前端**没有默认后端前缀**：每个请求必须显式给 `/web-api` 或 `/admin-api`；漏写会打到同源直接 404。
 
 ---
 
@@ -231,8 +230,7 @@ Go 服务（`data/go-api.env`，不入库）：
 
 | 用途 | 端口 |
 | --- | --- |
-| Go Web API | 12501（默认）；与 Java 并存期用 12502 |
-| Java 后端（回滚路径） | 12501 |
+| Go Web API | 12501（默认，只监听 127.0.0.1，由反代对外） |
 | Web 开发服务器 | 12500；`vite preview` 4173 |
 | PostgreSQL | 5432 |
 | Redis | 6379 |
@@ -246,8 +244,8 @@ Go 服务（`data/go-api.env`，不入库）：
 | --- | --- |
 | `3b-go-api.bat` / `3b-go-api.ps1` | Windows：读 `data\go-api.env`、检查 PG/Redis、编译、迁移、起服务、校验 `/health/ready`；`-Port/-SkipBuild/-Stop` |
 | `bin-linux/3b-go-api.sh` | Linux 等价脚本 |
-| `bin-linux/0-start-all.sh` | 一键起 MySQL/Redis/Java/前端；存在 `data/go-api.env` 时一并起 Go |
-| `bin-linux/9-stop-all.sh` | 停止全部（含 go-api） |
+| `bin-linux/0-start-all.sh` | 一键起 MySQL（旧数据源）/Redis/Go API/前端 |
+| `bin-linux/9-stop-all.sh` | 停止全部（Go API/前端/Redis/MySQL） |
 | `scripts/verify.sh` | 上线前验收：Go 构建/vet/gofmt、govulncheck、迁移命名、前端冻结安装/类型检查/构建、产物不得残留 `/dev-api`、依赖审计 |
 | `.github/workflows/verify.yml` | CI：`verify` 跑验收脚本；`migrate` 起 postgres:16 连跑两次迁移验幂等 |
 

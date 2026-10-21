@@ -10,11 +10,11 @@
 | --- | --- |
 | `tutor/tutor-api/` | **Go Web API（当前唯一在用的后端）**，模块 `github.com/tsdlmx/tutor-platform/tutor-api` |
 | `tutor/tutor-web/` | React 18 + TypeScript + Vite 6 前端，同时承载管理台（`/admin/**`）与客户 H5 |
-| `tutor/tutor-admin/`、`tutor/tutor-common/`、`tutor/tutor-framework/`、`tutor/tutor-system/`、`tutor/tutor-quartz/`、`tutor/tutor-generator/` | Java（Spring Boot 2.5）后端，**已无客户端依赖，仅作回滚路径** |
+| ~~Java 后端~~ | **已从 `main` 删除**（admin/common/framework/system/quartz/generator + pom.xml）；旧实现只在 tag `legacy-java-final` |
 | `tutor/tutor-uniapp/` | uni-app 静态样张（3 个页面、无 `package.json`、无接口调用），**不部署** |
 | `deploy/` | 生产部署产物：`nginx/`、`systemd/`、`logrotate/` |
 | `scripts/verify.sh` | 上线前验收脚本（本地与 CI 共用） |
-| `bin-linux/` | Linux 启动脚本（MySQL/Redis/Java/Go/前端） |
+| `bin-linux/` | Linux 启动脚本（MySQL 旧数据源 / Redis / Go API / 前端） |
 | `*.bat`、`3b-go-api.ps1` | Windows 启动脚本 |
 | `docs/` | 部署、等保、隐私、验证记录、ADR |
 | `data/` | **本地运行时目录（已 gitignore）**：`go-api.env`、日志、pid、上传目录 |
@@ -41,7 +41,7 @@ Go 服务的包职责：
 | Node | ≥20.19 | `package.json` engines |
 | PostgreSQL | 13+ | 权威库；迁移只在真实 PG 上验证过 16.2 |
 | Redis | 6+ | 会话、验证码、限流计数 |
-| Java / MySQL | 可选 | 仅回滚路径与旧数据来源 |
+| MySQL | 可选 | 仅旧数据来源（`cmd/import-legacy`）；Java 已移除，需要时从 tag `legacy-java-final` 取回 |
 
 ## 3. 后端约定（Go）
 
@@ -94,14 +94,14 @@ Go 服务的包职责：
 ## 7. 配置与本地运行
 
 - Go 服务配置放 `data/go-api.env`（或直接给环境变量），模板是 `tutor/tutor-api/.env.example`。**该文件含真实 `DATABASE_DSN` 与 `JWT_SECRET`，绝不要提交**；`data/` 已在 `.gitignore` 里。
-- 端口：Go 12501（与 Java 并存期用 12502）、Web dev 12500、`vite preview` 4173、PostgreSQL 5432、Redis 6379、MySQL 3307。
+- 端口：Go 12501、Web dev 12500、`vite preview` 4173、PostgreSQL 5432、Redis 6379、MySQL 3307（旧数据源）。
 - 启动：Windows `.\3b-go-api.bat`，Linux `bash bin-linux/3b-go-api.sh`（两者读同一份 `data\go-api.env`，有 Go 工具链就编译、先迁移后起服务、最后校验 `/health/ready`）。
 
 ## 8. 安全与数据边界（硬性）
 
 - 服务端必须校验对象级权限与角色权限，**不能**依赖前端隐藏按钮或客户端传来的资源 ID。
 - 不记录 JWT、验证码、微信凭据、口令或其他可复用密钥；排查问题用脱敏值。
-- 上传文件必须校验类型与内容，不能把可执行内容当可信网页公开（当前上传仍在 Java 侧，未在 Go 侧实现）。
+- 上传文件必须校验类型与内容，不能把可执行内容当可信网页公开。**当前 Go 侧没有上传能力**（原 Java `/common/**` 已随模块删除），恢复时必须补类型与内容校验。
 - 只信任明确配置的反向代理转发头（`TRUSTED_PROXY_CIDRS`）；**不要**直接信任客户端给的 `X-Forwarded-For`。
 - `tutor/sql/tutor.sql` 是含业务数据的导出，`.gitignore` 已排除：**不要读取、复制、解除忽略或提交**。
 - 不得为方便本地运行而关闭认证、授权、TLS 或密钥校验。
@@ -129,7 +129,7 @@ Go 服务的包职责：
 
 ## 10. 不在范围内（不要动）
 
-- Java 各模块：只作回滚路径，不做功能开发；也不要为了让页面工作而把新代码指回 `/dev-api`。
+- Java 各模块：已从 `main` 删除，只在 tag `legacy-java-final` 里。不要从 tag 复制回来做功能开发，也不要把新代码指回 `/dev-api`。
 - `tutor/tutor-uniapp`：静态样张，不构建、不部署。
 - `tutor/tutor-ui`：空目录。
 - `tutor/tools/*.py`：Java 时代的早期验证脚本，仅作参考，不作为当前验证依据。

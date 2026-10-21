@@ -1,51 +1,42 @@
-# 部署说明（Go 服务 + 过渡期双后端）
+# 部署说明（Go 单后端）
 
-本文件描述如何把迁移后的 Go Web API 部署到与现有 Java 服务并存的环境，以及最终切换与回滚步骤。它基于仓库现有脚本的真实约定：Linux 侧由 `bin-linux/*.sh` 启动 MySQL、Redis、Java 后端、Go Web API 与 `vite preview` 前端，**没有 nginx**。
+本文件描述如何部署 Go Web API 与前端。它基于仓库现有脚本的真实约定：Linux 侧由 `bin-linux/*.sh` 启动 MySQL（仅旧数据来源）、Redis、Go Web API 与 `vite preview` 前端；生产入口按 §5.1 使用 nginx。**Java 后端已从仓库删除**，需要旧实现时从 tag `legacy-java-final` 取回。
 
 ## 0. 迁移现状（2026-10-21 核对）
 
-仓库内已经没有任何客户端依赖 Java 后端，Go 单后端上线是可行的：
+仓库内已经没有任何客户端依赖 Java 后端，Java 模块也已移除：
 
 | 证据 | 结论 |
 | --- | --- |
 | `tutor-web` 构建产物中不存在 `/dev-api`、`/prod-api` 字样 | React 管理台与 H5 只访问 `/web-api`、`/admin-api` |
 | 前端 `src/api/*.ts` 调用的每条路径都能在 `internal/httpapi/router.go` 找到对应路由 | 无功能缺口（唯一对不上的 `PUT /system/tutorInfo` 是无页面引用的死代码，已删除） |
 | `tutor-uniapp` 只有 3 个页面、没有 `package.json`、没有任何 `uni.request` 调用，首页是硬编码假数据，AppID 已清空 | 小程序端是不部署的静态样张，不是可用客户端 |
-| 部署脚本只拉起 Java、MySQL、Redis 与前端，没有任何构建/部署 uni-app 的步骤 | 小程序不参与本次上线 |
-
-因此「过渡期双后端」只是**可选的安全回滚路径**，不是必须经历的阶段；首次部署可以直接按 Go 单后端进行。
+| `tutor/tutor-admin`、`tutor-common`、`tutor-framework`、`tutor-system`、`tutor-quartz`、`tutor-generator` 与 `tutor/pom.xml` 已从 `main` 删除 | 旧实现在 tag `legacy-java-final`；运行时不再需要 JDK |
 
 ## 1. 拓扑
 
-### 过渡期（两个后端并存，可选）
-
 ```
 浏览器
-  │  https://<host>:12500  （vite preview 伺服 dist）
-  │     ├── /prod-api/*  → http://127.0.0.1:12501  Java（未迁移模块）
-  │     ├── /web-api/*   → http://127.0.0.1:12502  Go（客户 Web）
-  │     └── /admin-api/* → http://127.0.0.1:12502  Go（管理员认证 + 已迁移管理接口）
+  │  https://<域名>  （nginx 伺服 dist，见 §5.1）
+  │     ├── /web-api/*   → 127.0.0.1:12501  客户 Web
+  │     └── /admin-api/* → 127.0.0.1:12501  管理员认证 + 管理接口
   ▼
 Go 服务 ── PostgreSQL（权威库） ── Redis（会话、验证码、限流）
-Java 服务 ── MySQL（只读来源，等待导入） ── 同一个 Redis（管理员会话）
+                     └─ MySQL 仅作旧数据来源（cmd/import-legacy，一次性）
 ```
 
-**端口冲突**：Java 已占用 `12501`。过渡期必须把 Go 放到另一个端口（下文用 `12502`），并在前端 `.env.production` 中分别指定三个代理目标。`vite.config.ts` 的默认值都是 `127.0.0.1:12501`，只适用于 Java 退役之后的单后端部署。
-
-### 切换完成（Go 单后端）
-
-Go 接管 `12501`，前端只访问 `/web-api` 与 `/admin-api`；Java 与 MySQL 下线，`/dev-api` 反代可一并移除。
+前端只访问 `/web-api` 与 `/admin-api`；`/dev-api` 已无消费者，反代里可以完全不配。回滚到 Java 版本的做法见 §8。
 
 ## 2. 前置资源
 
 | 资源 | 说明 |
 | --- | --- |
 | Go 1.26.9+ | `go.mod` 已声明 `toolchain go1.26.9`：低版本工具链带已知标准库漏洞，不应再用于构建。构建机可联网时 Go 会自动下载该工具链，离线构建需预置。 |
-| Node 20.19+ / pnpm 9+ | 前端构建与 `vite preview`；`package.json` 的 `engines` 已声明下限。 |
+| Node 20.19+ / pnpm **10+** | 前端构建与 `vite preview`；锁文件由 pnpm 12 写入，pnpm 9 读不了。 |
 | PostgreSQL 13+ | 权威库，字符集 UTF8，时区 UTC。库名示例 `tutor`。 |
-| Redis 6+ | 与 Java 共用同一实例和逻辑库（过渡期必需），用于管理员会话 `login_tokens:*`、验证码 `captcha_codes:*`、邮箱验证码与限流计数。 |
+| Redis 6+ | 管理员会话 `login_tokens:*`、验证码 `captcha_codes:*`、邮箱验证码与限流计数。 |
 | SMTP | 未配置时客户注册/找回验证码接口返回 503（安全失败，不回显验证码）。 |
-| 反向代理 | `vite preview` 可用但不适合作为长期生产入口；建议后续用 nginx 承担 TLS、HTTP/2、限流与静态缓存。 |
+| 反向代理 | 生产用 §5.1 的 nginx 配置；`vite preview` 只适合临时验证。 |
 
 ## 3. 环境变量
 
@@ -53,9 +44,9 @@ Go 接管 `12501`，前端只访问 `/web-api` 与 `/admin-api`；Java 与 MySQL
 
 ```
 APP_ENV=production
-HTTP_ADDR=127.0.0.1:12502           # 过渡期；切换后改回 127.0.0.1:12501
+HTTP_ADDR=127.0.0.1:12501           # 只监听本机，由反代对外
 DATABASE_DSN=postgres://tutor_app:<密码>@127.0.0.1:5432/tutor?sslmode=require
-JWT_SECRET=<64 位十六进制随机串>      # 过渡期必须与 Java token.secret 相同
+JWT_SECRET=<64 位十六进制随机串>      # 至少 32 字节；生产环境会拒绝文档占位值
 REDIS_ADDR=127.0.0.1:6379
 REDIS_PASSWORD=<密码>
 TRUSTED_PROXY_CIDRS=127.0.0.1/32    # 只填写你实际运行的反代网段
@@ -73,17 +64,17 @@ PRIVACY_POLICY_VERSION=2026-10-21   # 生产必填：注册同意记录里存这
 openssl rand -hex 32
 ```
 
-前端构建期变量（`tutor/tutor-web/.env.production`，过渡期）。前端已没有默认后端前缀，只访问 `/web-api` 与 `/admin-api`：
+前端构建期变量（`tutor/tutor-web/.env.production`）。前端没有默认后端前缀，只访问 `/web-api` 与 `/admin-api`：
 
 ```
 VITE_CUSTOMER_API_BASE_URL=/web-api
 VITE_WEB_API_PROXY_PREFIX=/web-api
-VITE_WEB_API_PROXY_TARGET=http://127.0.0.1:12502
+VITE_WEB_API_PROXY_TARGET=http://127.0.0.1:12501
 VITE_ADMIN_API_PROXY_PREFIX=/admin-api
-VITE_ADMIN_API_PROXY_TARGET=http://127.0.0.1:12502
+VITE_ADMIN_API_PROXY_TARGET=http://127.0.0.1:12501
 # 隐私政策与用户协议的公开地址（注册页勾选同意时链接到此）；上线前必须发布并配置
 VITE_PRIVACY_POLICY_URL=https://<你的域名>/privacy
-# 过渡期兜底（当前没有页面调用，随 Java 退役删除）
+# /dev-api 已无消费者；如无历史包袱可整段删除
 VITE_PROXY_PREFIX=/dev-api
 VITE_PROXY_TARGET=http://127.0.0.1:12501
 ```
@@ -115,7 +106,7 @@ Linux 部署机推荐直接用仓库脚本（编译、迁移、探活、日志�
 cp tutor/tutor-api/.env.example data/go-api.env
 #   填入真实的 DATABASE_DSN / JWT_SECRET / REDIS_ADDR / PRIVACY_POLICY_VERSION 等
 
-# 2) 启动（缺省监听 12502；有 go 工具链时自动编译并先跑迁移）
+# 2) 启动（缺省监听 12501；有 go 工具链时自动编译并先跑迁移）
 bash bin-linux/3b-go-api.sh
 
 # 3) 前端按第 3 节变量重新构建并发布
@@ -124,9 +115,9 @@ bash bin-linux/4-web.sh
 # 4) 停止：bash bin-linux/9-stop-all.sh（会一并停掉 go-api）
 ```
 
-把 `GO_API_PORT` 设为 `12501`（或 `BACKEND_PORT` 对应值）、停掉 Java 之后，就是 Go 单后端。
+Go Web API 就是唯一的后端，默认监听 `12501`（`GO_API_PORT` 可覆盖）。
 
-Windows 开发机用 `3b-go-api.bat`（实现是同目录的 `3b-go-api.ps1`），行为与 `3b-go-api.sh` 对齐：同样读 `data\go-api.env`，有 go 工具链就编译，先应用迁移再起服务，最后校验 `/health/ready`；日志写 `data\logs\go-api.log`，pid 写 `data\pids\go-api.pid`。端口以 env 文件里的 `HTTP_ADDR` 为准（未设置时默认只监听 `127.0.0.1:12502`），`-Port 12501` 用于切到正式端口，`-SkipBuild` 复用已有二进制，`-Stop` 停止。`start-all.bat` 在存在 `data\go-api.env` 时会一并拉起，`stop-all.bat` 会一并停掉。
+Windows 开发机用 `3b-go-api.bat`（实现是同目录的 `3b-go-api.ps1`），行为与 `3b-go-api.sh` 对齐：同样读 `data\go-api.env`，有 go 工具链就编译，先应用迁移再起服务，最后校验 `/health/ready`；日志写 `data\logs\go-api.log`，pid 写 `data\pids\go-api.pid`。端口以 env 文件里的 `HTTP_ADDR` 为准（未设置时默认只监听 `127.0.0.1:12501`），`-Port` 可改端口，`-SkipBuild` 复用已有二进制，`-Stop` 停止。`start-all.bat` 在存在 `data\go-api.env` 时会一并拉起，`stop-all.bat` 会一并停掉。
 
 ## 5.1 生产部署产物（nginx + systemd）
 
@@ -195,8 +186,8 @@ LEGACY_MYSQL_DSN=... DATABASE_DSN=... go run ./cmd/import-legacy --apply
 
 # 4) 启动并探活
 systemd-run 或 nohup ./runtime/tutor-api &
-curl -fsS http://127.0.0.1:12502/health/live
-curl -fsS http://127.0.0.1:12502/health/ready     # 依赖 PostgreSQL 与 Redis
+curl -fsS http://127.0.0.1:12501/health/live
+curl -fsS http://127.0.0.1:12501/health/ready     # 依赖 PostgreSQL 与 Redis
 
 # 5) 前端按第 3 节变量重新构建并发布
 ```
@@ -224,19 +215,36 @@ COPY (SELECT * FROM sys_login_audit WHERE created_at < now() - interval '6 month
   TO '/archive/sys_login_audit.csv' CSV HEADER;
 ```
 
-## 8. 切换与回滚
+## 8. 旧数据导入与回滚
 
-切换前提：React 前端已不再依赖 `/dev-api`（构建产物中不含该前缀，漏写 baseURL 会直接 404），且 `sys_login_audit`、`sys_oper_log` 的最终 MySQL 快照已导入。
+### 8.1 从旧 MySQL 导入（一次性）
 
-切换步骤：
+Java 后端已删除，但 MySQL 里的历史数据仍在。导入流程：
 
-1. 冻结 MySQL 写入（停 Java 的写操作或切只读）。
-2. 跑最后一次 `cmd/import-legacy`（预检 + `--apply`）。
-3. Go 改绑 `12501`，前端三个代理目标全部指向 `12501`。
-4. 停 Java，`/dev-api` 前缀从反代移除（仅剩小程序过渡还在用它，若小程序也已迁移则可完全删除）。
-5. 冒烟：管理员登录与验证码、`/getInfo`、教师审核、帖子审核、客户账号状态、在线会话与强制下线、个人中心改密。
+1. 冻结 MySQL 写入（停掉任何仍写 MySQL 的旧进程，或把库切成只读）。
+2. 先跑只读预检，核对每张表的行数与邮箱冲突：
+   ```bash
+   LEGACY_MYSQL_DSN='user:pass@tcp(127.0.0.1:3307)/tutor?parseTime=true' \
+   DATABASE_DSN='postgres://...' go run ./cmd/import-legacy
+   ```
+3. 预检无异常、且目标表为空时再写：
+   ```bash
+   ... go run ./cmd/import-legacy --apply
+   ```
+4. 导入完成后做一次冒烟：管理员登录与验证码、`/getInfo`、教师审核、帖子审核、客户账号状态、在线会话与强制下线、个人中心改密。
 
-回滚：保留 Java 与 MySQL 的只读快照和原进程启动脚本；把 Go 退回 `12502`、前端代理改回原值、重启 Java 即可。切换后仍在 PostgreSQL 写入的数据不会回流 MySQL，回滚前必须评估这段时间的业务写入。
+导入器是**快照写入**（目标表必须为空），不是同步工具；客户会话不迁移，管理员会话在 Redis 里不受影响。
+
+### 8.2 回滚到 Java 版本
+
+旧实现在 tag `legacy-java-final`：
+
+```bash
+git checkout legacy-java-final           # 或者基于 tag 开分支
+# 需要重新构建 tutor-admin.jar，并恢复 3-backend.sh / 3-backend.bat
+```
+
+回滚前必须评估：切换后写入 PostgreSQL 的数据**不会**回流 MySQL，这段时间的业务写入要么接受丢失，要么手工补录。
 
 ## 9. 发布前验收
 
@@ -254,5 +262,5 @@ SKIP_AUDIT=1 bash scripts/verify.sh # 无外网时跳过依赖审计
 - 已提供 nginx 站点配置与 systemd 单元（§5.1），但仓库内的启动脚本仍是 `setsid nohup` + pid 文件的方式（无开机自启/崩溃拉起）；生产应改用 §5.1 的 systemd 单元，Windows 侧（`3b-go-api.bat`）同样只是隐藏窗口进程。
 - `bin-linux` 脚本把 Go 日志写到 `data/logs/go-api.log`，不轮转；生产应改用 §5.1 的 systemd 单元（日志进 journald，配合 `deploy/systemd/journald-tutor.conf` 的保留策略）。
 - `vite preview` 不是加固的生产入口：没有 HTTP/2、连接限流与细粒度访问控制。§5.1 的 nginx 配置已验证可用，上线前应切换过去。
-- 服务监控页已由 Go 提供（宿主机指标 + Go 运行时 + 数据库连接池）；Java 的缓存监控接口没有 React 页面调用，未迁移。
+- 服务监控页已由 Go 提供（宿主机指标 + Go 运行时 + 数据库连接池）；旧 Java 的缓存监控接口没有客户端调用，随 Java 模块一并移除。
 - 迁移与核心链路已在 PostgreSQL 16.2 上实测通过（见 `docs/VERIFICATION-RESULTS.md`）；`cmd/import-legacy` 对真实 MySQL 的预检与导入尚未验证，首次部署仍必须先在预发库跑一次预检并核对行数。

@@ -12,9 +12,9 @@
       means PostgreSQL and Redis answered
 
   The port comes from HTTP_ADDR in data\go-api.env, because that is what the
-  process actually binds; without it we default to 127.0.0.1:12502 (the same
-  transition port the Linux script uses while Java still owns 12501). -Port
-  forces a port and refuses to run when it contradicts the file.
+  process actually binds; without it we default to 127.0.0.1:12501, the same
+  port the Linux script uses. -Port forces a port and refuses to run when it
+  contradicts the file.
 
   This file is ASCII-only on purpose: Windows PowerShell 5.1 decodes .ps1 files
   without a BOM as ANSI, so non-ASCII text would be mangled on CJK hosts. The
@@ -22,7 +22,7 @@
 
   Usage:
     3b-go-api.bat                 start, or report that it is already running
-    3b-go-api.bat -Port 12501     start on the post-switch (Go-only) port
+    3b-go-api.bat -Port 12502     start on an alternative port
     3b-go-api.bat -SkipBuild      reuse the existing binaries
     3b-go-api.bat -Stop           stop the process recorded in the pid file
 #>
@@ -249,7 +249,7 @@ if ($Port -gt 0) {
     if (-not $portMatch.Success) { Fail "cannot read a port from HTTP_ADDR=$httpAddr" }
     $Port = [int]$portMatch.Groups[1].Value
 } else {
-    $Port = 12502
+    $Port = 12501
     $httpAddr = "127.0.0.1:$Port"
     Write-Warn "HTTP_ADDR is not set in data\go-api.env; binding 127.0.0.1:$Port"
 }
@@ -262,9 +262,7 @@ if (-not $probeHost -or $probeHost -eq '0.0.0.0' -or $probeHost -eq '::' -or $pr
 }
 $probeHost = $probeHost.Trim('[', ']')
 
-if ($Port -eq 12501) {
-    Write-Warn 'binding 12501: this is the Java port during the transition, so stop Java first (stop-all.bat)'
-}
+
 
 # --------------------------------------------------------------------------
 # Already running?
@@ -404,6 +402,6 @@ Write-Host "    VITE_WEB_API_PROXY_TARGET=http://127.0.0.1:$Port"
 Write-Host "    VITE_ADMIN_API_PROXY_TARGET=http://127.0.0.1:$Port"
 Write-Host '  Stop it with:  3b-go-api.bat -Stop   (or stop-all.bat)'
 Write-Host "  Logs:          data\logs\go-api.log"
-Write-Host '  Go-only switch: set HTTP_ADDR=127.0.0.1:12501 in data\go-api.env, stop Java, restart.'
+Write-Host '  Production entry: deploy/nginx (see docs/DEPLOYMENT.md 5.1)'
 Write-Host ''
 exit 0

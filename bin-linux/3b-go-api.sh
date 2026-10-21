@@ -2,8 +2,7 @@
 # ============================================================================
 # 3b) 启动 Go Web API（迁移后的后端）
 # ----------------------------------------------------------------------------
-# 与 3-backend.sh 的 Java 服务并存，因此默认监听 GO_API_PORT(12502)；
-# 等 Java 退役、前端反代全部指向它之后，把它改到 BACKEND_PORT(12501) 即可。
+# 这是当前唯一的后端，默认监听 GO_API_PORT(12501)。
 #
 # 配置放在 data/go-api.env（不随仓库提交），变量见 tutor/tutor-api/.env.example：
 #   DATABASE_DSN / JWT_SECRET / REDIS_ADDR / REDIS_PASSWORD
@@ -98,5 +97,5 @@ if command -v curl >/dev/null 2>&1; then
 fi
 
 echo "  [提示] 前端需把 /web-api 与 /admin-api 反代到 127.0.0.1:$GO_API_PORT"
-echo "  [提示] 切换完成后把 GO_API_PORT 改成 $BACKEND_PORT 并停掉 Java"
+echo "  [提示] 生产入口应使用 deploy/nginx 的配置（见 docs/DEPLOYMENT.md §5.1）"
 echo "  [提示] 日志：$LOGS/go-api.log"
