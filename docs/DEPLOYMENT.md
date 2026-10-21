@@ -126,6 +126,8 @@ bash bin-linux/4-web.sh
 
 把 `GO_API_PORT` 设为 `12501`（或 `BACKEND_PORT` 对应值）、停掉 Java 之后，就是 Go 单后端。
 
+Windows 开发机用 `3b-go-api.bat`（实现是同目录的 `3b-go-api.ps1`），行为与 `3b-go-api.sh` 对齐：同样读 `data\go-api.env`，有 go 工具链就编译，先应用迁移再起服务，最后校验 `/health/ready`；日志写 `data\logs\go-api.log`，pid 写 `data\pids\go-api.pid`。端口以 env 文件里的 `HTTP_ADDR` 为准（未设置时默认只监听 `127.0.0.1:12502`），`-Port 12501` 用于切到正式端口，`-SkipBuild` 复用已有二进制，`-Stop` 停止。`start-all.bat` 在存在 `data\go-api.env` 时会一并拉起，`stop-all.bat` 会一并停掉。
+
 手工部署时等价步骤如下：
 
 ```bash
@@ -199,8 +201,8 @@ SKIP_AUDIT=1 bash scripts/verify.sh # 无外网时跳过依赖审计
 
 ## 10. 尚未覆盖
 
-- 仓库没有 systemd/容器编排文件；`bin-linux` 已能拉起 Go Web API（`3b-go-api.sh`，需 `data/go-api.env`），但仍是 `setsid nohup` + pid 文件的方式，没有开机自启与崩溃拉起。
+- 仓库没有 systemd/容器编排文件；`bin-linux` 已能拉起 Go Web API（`3b-go-api.sh`，需 `data/go-api.env`），但仍是 `setsid nohup` + pid 文件的方式，没有开机自启与崩溃拉起。Windows 侧（`3b-go-api.bat`）同样是隐藏窗口进程 + pid 文件，也没有守护。
 - Go 进程的日志由 `data/logs/go-api.log` 收集，未接入日志轮转；生产需配 logrotate 或日志采集。
 - `vite preview` 不是加固的生产入口：没有 HTTP/2、连接限流与细粒度访问控制，建议上线前补 nginx 配置（TLS1.2+、HSTS、静态资源缓存、`/web-api`、`/admin-api` 转 Go）。
 - 服务监控页已由 Go 提供（宿主机指标 + Go 运行时 + 数据库连接池）；Java 的缓存监控接口没有 React 页面调用，未迁移。
-- 迁移与查询尚未在真实 PostgreSQL 上验证过（开发环境无可用实例），首次部署必须先在预发库执行 `cmd/migrate` 与 `cmd/import-legacy` 预检。
+- 迁移与核心链路已在 PostgreSQL 16.2 上实测通过（见 `docs/VERIFICATION-RESULTS.md`）；`cmd/import-legacy` 对真实 MySQL 的预检与导入尚未验证，首次部署仍必须先在预发库跑一次预检并核对行数。

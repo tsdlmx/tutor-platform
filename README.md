@@ -79,10 +79,10 @@ java -jar .\tutor\tutor-admin\target\tutor-admin.jar
 ~~~powershell
 Set-Location D:/tutor-platform/tutor/tutor-web
 corepack pnpm install --frozen-lockfile
-corepack pnpm dev -- --host 127.0.0.1 --port 5173
+corepack pnpm dev -- --host 127.0.0.1 --port 12500
 ~~~
 
-开发服务器把 `/dev-api` 代理到仍在使用的 Java 服务（`VITE_PROXY_TARGET`），把 `/web-api`（客户 Web）和 `/admin-api`（已迁移的管理接口与管理员登录）代理到 Go 服务（`VITE_WEB_API_PROXY_TARGET`、`VITE_ADMIN_API_PROXY_TARGET`）。三个目标默认都指向 127.0.0.1:12501，切分部署时需要分别指定。本地访问地址为 http://127.0.0.1:5173。
+开发服务器把 `/dev-api` 代理到仍在使用的 Java 服务（`VITE_PROXY_TARGET`），把 `/web-api`（客户 Web）和 `/admin-api`（已迁移的管理接口与管理员登录）代理到 Go 服务（`VITE_WEB_API_PROXY_TARGET`、`VITE_ADMIN_API_PROXY_TARGET`）。三个目标默认都指向 127.0.0.1:12501，切分部署时需要分别指定。本地访问地址为 http://127.0.0.1:12500。
 
 构建前端：
 
@@ -111,7 +111,11 @@ go run ./cmd/server
 
 Linux 部署机上可改用 `bash bin-linux/3b-go-api.sh`（编译 + 迁移 + 探活，配置读 `data/go-api.env`）。
 
-配置项、已迁移路由、管理员认证与告知同意/注销流程、数据库与旧 MySQL 数据导入流程见 [tutor/tutor-api/README.md](tutor/tutor-api/README.md)；迁移决策见 `docs/adr`；部署拓扑、端口分配、最小权限数据库账号与切换/回滚步骤见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)；等保与隐私基线见 [docs/SECURITY-BASELINE.md](docs/SECURITY-BASELINE.md) 与 [docs/DATA-PRIVACY.md](docs/DATA-PRIVACY.md)；上线前验收见 `scripts/verify.sh`。
+Windows 上双击 `3b-go-api.bat`（等价于上面那条命令）：读同一份 `data\go-api.env`，有 go 工具链就现场编译，先跑迁移再起服务，最后校验 `/health/ready`。常用开关：`-Port 12501`（切到正式端口）、`-SkipBuild`（复用 `runtime\tutor-api.exe`）、`-Stop`（按 pid 文件停止）。未设置 `HTTP_ADDR` 时默认只监听 `127.0.0.1:12502`，日志写 `data\logs\go-api.log`，pid 写 `data\pids\go-api.pid`。`start-all.bat` 检测到 `data\go-api.env` 时会一并拉起它，`stop-all.bat` 会一并停掉。
+
+`data\go-api.env` 含真实的 `DATABASE_DSN` 与 `JWT_SECRET`，已在 `.gitignore` 中排除，不要提交。
+
+配置项、已迁移路由、管理员认证与告知同意/注销流程、数据库与旧 MySQL 数据导入流程见 [tutor/tutor-api/README.md](tutor/tutor-api/README.md)；迁移决策见 `docs/adr`；部署拓扑、端口分配、最小权限数据库账号与切换/回滚步骤见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)；等保与隐私基线见 [docs/SECURITY-BASELINE.md](docs/SECURITY-BASELINE.md) 与 [docs/DATA-PRIVACY.md](docs/DATA-PRIVACY.md)；上线前验收见 `scripts/verify.sh`，已执行过的验证与结果见 [docs/VERIFICATION-RESULTS.md](docs/VERIFICATION-RESULTS.md)。
 
 ## 当前限制
 

@@ -28,8 +28,8 @@ stop_one mysql "$MYSQL_PORT"
 
 echo
 echo "残留检查（应为空）："
-for p in "$MYSQL_PORT" "$REDIS_PORT" "$BACKEND_PORT" "$WEB_PORT"; do
+for p in "$MYSQL_PORT" "$REDIS_PORT" "$BACKEND_PORT" "$GO_API_PORT" "$WEB_PORT"; do
   ss -ltn 2>/dev/null | awk -v p=":$p\$" '$4 ~ p {print "  仍被占用: " $4}'
 done
-ps -eo pid,args | grep -E 'tutor-admin\.jar|node_modules/\.bin/vite|[r]edis-server|mysqld' \
+ps -eo pid,args | grep -E 'tutor-admin\.jar|tutor-api|[n]ode_modules/\.bin/vite|[r]edis-server|mysqld' \
   | grep -v grep | grep -v 'bin-linux' || echo "  （无残留进程 ✓）"

@@ -8,7 +8,7 @@ rem Upload dir. Passed as an environment variable on purpose: a "-Dxxx.yyy=zzz"
 rem command line argument gets split at the first dot by some shells.
 set "RUOYI_PROFILE=%PKG%\data\uploadPath"
 set "JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF-8"
-title Backend (port 8080)
+title Backend (port 12501)
 
 if not exist "%JAVA_HOME%\bin\java.exe" (
   echo [ERROR] java.exe not found at:
@@ -25,7 +25,7 @@ if not exist "%JAR%" (
 if not exist "%RUOYI_PROFILE%" mkdir "%RUOYI_PROFILE%"
 
 echo ============================================================
-echo  Backend   http://127.0.0.1:8080
+echo  Backend   http://127.0.0.1:12501   (server.port in application.yml)
 echo  uploads : %RUOYI_PROFILE%
 echo ============================================================
 echo  Keep this window open while using the platform.

@@ -3,7 +3,10 @@
 **/node_modules/
 **/dist/
 **/*.tsbuildinfo
-# Local runtime data
+# Local runtime data. Both bin-linux scripts and the Windows .bat scripts use
+# <root>/data: database files, logs, pids, uploads and data/go-api.env, which
+# holds the real DATABASE_DSN / JWT_SECRET and must never be committed.
+/data/
 /bin-linux/data/
 /runtime/
 /runtime-linux/
