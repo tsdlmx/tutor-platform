@@ -22,6 +22,7 @@ type API struct {
 	web            *web.Service
 	config         config.Config
 	allowedOrigins map[string]struct{}
+	monitor        *hostMetricsCache
 }
 
 func New(logger *slog.Logger, db *gorm.DB, redisClient *redis.Client, jwtSecret []byte, cfg config.Config) http.Handler {
@@ -37,6 +38,7 @@ func New(logger *slog.Logger, db *gorm.DB, redisClient *redis.Client, jwtSecret 
 		web:            web.NewService(db),
 		config:         cfg,
 		allowedOrigins: origins,
+		monitor:        &hostMetricsCache{},
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", a.live)

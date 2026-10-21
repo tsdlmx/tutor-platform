@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/cpu"
@@ -88,16 +89,50 @@ type monitorDisk struct {
 // processStartedAt is the moment this process began serving, used for uptime.
 var processStartedAt = time.Now()
 
+// hostMetricsTTL bounds how often the expensive host probes run. The monitoring
+// screen polls every 15 seconds, and a status page should never be able to turn
+// into load: without this cache 50 concurrent requests spend most of their time
+// in host.Info/disk syscalls.
+const hostMetricsTTL = 3 * time.Second
+
+// hostMetricsCache holds the last host snapshot together with its reading time.
+type hostMetricsCache struct {
+	mu      sync.Mutex
+	at      time.Time
+	cpu     monitorCPU
+	mem     monitorMemory
+	sys     monitorSystem
+	sysFile []monitorDisk
+}
+
+// snapshot returns the cached host metrics, refreshing them when stale. The
+// refresh runs under the lock so concurrent callers wait for one probe instead of
+// all issuing their own.
+func (c *hostMetricsCache) snapshot() (monitorCPU, monitorMemory, monitorSystem, []monitorDisk) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if time.Since(c.at) < hostMetricsTTL {
+		return c.cpu, c.mem, c.sys, c.sysFile
+	}
+	c.cpu = readCPUStats()
+	c.mem = readMemoryStats()
+	c.sys = readSystemInfo()
+	c.sysFile = readDiskUsage()
+	c.at = time.Now()
+	return c.cpu, c.mem, c.sys, c.sysFile
+}
+
 // getAdminServerInfo replaces the Java-backed monitor endpoint. It reports host
 // CPU/memory/disk plus this process's runtime and database pool figures.
 func (a *API) getAdminServerInfo(w http.ResponseWriter, r *http.Request) {
-	// Host metrics are best-effort: a restricted container may hide them, and a
-	// missing value must not break the whole screen.
+	// Host probes are cached briefly; the process and pool figures are cheap and
+	// read fresh every time so the screen still shows live runtime data.
+	cpuStats, memStats, sysInfo, sysFiles := a.monitor.snapshot()
 	payload := monitorResponse{
-		SysFiles: readDiskUsage(),
-		Sys:      readSystemInfo(),
-		CPU:      readCPUStats(),
-		Mem:      readMemoryStats(),
+		SysFiles: sysFiles,
+		Sys:      sysInfo,
+		CPU:      cpuStats,
+		Mem:      memStats,
 		Runtime:  readRuntimeStats(),
 		Database: readDatabasePool(a),
 	}

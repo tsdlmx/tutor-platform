@@ -11,7 +11,7 @@
 - bin-linux：Linux 启动和部署脚本。
 - docs：项目文档。
 
-后端 Maven 项目版本为 3.9.0，使用 Java 8。Web 前端包版本为 1.0.0，锁文件为 pnpm 9 格式。
+后端 Maven 项目版本为 3.9.0，使用 Java 8。Web 前端包版本为 1.0.0。前端锁文件为 pnpm 锁文件 v9 格式，但由 pnpm 12 写入（只含 snapshots 段），pnpm 9 已无法读取；实测 pnpm 10 与 12 都能 --frozen-lockfile 安装。
 
 ## 开始工作前
 
@@ -37,7 +37,7 @@
 mvn -f .\tutor\pom.xml -pl tutor-admin -am package
 ~~~
 
-Web 前端位于 tutor/tutor-web，使用 pnpm 9。常用命令：
+Web 前端位于 tutor/tutor-web，使用 pnpm 10 或更高版本（pnpm 9 无法读取当前锁文件）。常用命令：
 
 ~~~powershell
 corepack pnpm install --frozen-lockfile
