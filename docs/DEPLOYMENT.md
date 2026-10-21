@@ -247,7 +247,7 @@ SKIP_AUDIT=1 bash scripts/verify.sh # 无外网时跳过依赖审计
 
 脚本逐项检查：Go 构建 / `go vet` / `gofmt`、`govulncheck` 可达漏洞、迁移文件命名、前端冻结安装与类型检查与构建、构建产物不得残留 `/dev-api`、`/prod-api`（前端已彻底脱离 Java 的回归护栏）、前端 high/critical 依赖漏洞。任一项失败退出码非 0。
 
-建议接入 CI：在合并前与发布前各跑一次；`govulncheck` 与 `pnpm audit` 需要外网，离线环境用 `SKIP_AUDIT=1` 并改为在联网构建机上单独执行。
+仓库已提供 `.github/workflows/verify.yml`（GitHub Actions 示例）：`verify` job 跑 `scripts/verify.sh`，`migrate` job 起一个 postgres:16 服务容器并连跑两次 `cmd/migrate` 验证迁移可应用且幂等。不用 GitHub 时把两个 job 的 shell 步骤搬到自己的 CI 即可。`govulncheck` 与 `pnpm audit` 需要外网，离线环境用 `SKIP_AUDIT=1`。
 
 ## 10. 尚未覆盖
 

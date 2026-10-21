@@ -75,19 +75,34 @@ DATABASE_DSN=postgres://postgres@127.0.0.1:55433/postgres?sslmode=disable go run
 - 数据导出：用两个客户（A 导出、B 仅作为他人数据存在）验证 `GET /customer/auth/export`。20 项断言全部通过——导出含账号/同意记录/简历/本人帖子/本人需求/收到与发出的申请，`Content-Disposition` 为附件；隐私侧确认导出内容**不含口令哈希、不含他人邮箱/帖子/需求/他人账号 id**；未认证访问返回 401。
 - 日志留存：`deploy/logrotate/tutor` 用真实 logrotate 3.22.0 以 `-d` 演练解析通过（识别出 weekly、26 rotations、empty log files 跳过等语义）；`deploy/systemd/journald-tutor.conf` 为 key=value 形式，随 systemd 单元一并交付。
 
-### 6. 观察到的行为（非缺陷）
+### 6. 并发与限流压测（9 项，全部通过）
+
+在临时 PostgreSQL + 本地 Go 服务（`go run`，未做编译优化）上，用 50 并发送读、20 并发写与 40 并发错误口令施压：
+
+| 场景 | 结果 |
+| --- | --- |
+| `/monitor/server` 50 并发 × 10 | 500/500 返回 200，p50=9ms、p95=87ms、max=869ms |
+| `/monitor/operlog/list` 20 并发 × 10 | 200/200 返回 200，p95=244ms |
+| `/health/ready` 50 并发 × 10 | 500/500 返回 200，p95=12ms |
+| 并发改个人资料 20 并发 | 20/20 返回 200，无 5xx、无连接错误 |
+| 40 并发错误口令 | 19×400 + 21×429，无 5xx；限流/锁定生效；**不出现 401/403**（不泄露账号是否存在） |
+| 数据库连接 | 压测后 `pg_stat_activity` 只有 6 个连接（池上限 25），无耗尽 |
+
+压测中发现并修复一处性能问题：`/monitor/server` 每次请求都做宿主机 syscall（`host.Info`、磁盘枚举），50 并发时 p50 高达 492ms。已给宿主机指标加 3 秒 TTL 缓存（进程运行时与连接池仍每次实时读取），修复后 p50 降到 9ms、p95 从 543ms 降到 87ms。
+
+### 7. 观察到的行为（非缺陷）
 
 - `profile.update`、`profile.password`、`online.force_logout` 的 `action_meta` 为 `{}`：这些动作没有"目标资源 id"，审计行仍记录标题、动作、操作人、地址、状态与耗时。只有带目标 id 的动作（教师审核、帖子审核、客户账号状态等）才写 `action_meta`。
 - 服务监控在无数据库连接的实例上会把连接池降级为零值而不是报错（已由单元级检查覆盖）。
 - 已登录客户访问 `/tutors` 会被 `RequireGuestOnly` 重定向——这是既有产品行为，不是缺陷。
 
-### 7. 仍未验证
+### 8. 仍未验证
 
 | 项 | 原因 / 后续 |
 | --- | --- |
 | `cmd/import-legacy` 对真实 MySQL 的预检与 `--apply` | 环境内没有 MySQL 实例；上线前必须在预发库按 `docs/DEPLOYMENT.md` §5 跑一次预检并核对行数 |
 | 真实证书链下的 TLS / HSTS / OCSP | 配置已用自签证书验证；需在部署环境用真实证书复核签发链与 `ssl_stapling` |
-| 并发与性能 | 未做压测；限流与锁定的阈值需按真实流量校准 |
+| 生产环境性能 | 已在开发机做过 50 并发冒烟（见第 6 节）；生产容量与限流阈值仍需按真实流量校准 |
 | 登录审计的归档保留 | 已提供 `deploy/logrotate/tutor` 与 `deploy/systemd/journald-tutor.conf`；数据库审计表的归档 SQL 需部署方按 `docs/DEPLOYMENT.md` §7 定时执行 |
 | 小程序端 | 仓库内的 uni-app 是不部署的静态样张，未纳入验证 |
 
