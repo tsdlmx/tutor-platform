@@ -357,6 +357,30 @@ export function deleteAccount(password: string) {
   return reqOk({ url: url('/auth/delete-account'), method: 'post', data: { password } });
 }
 
+/** 导出的数据包结构（与后端 identity.CustomerDataExport 对应） */
+export interface CustomerDataExport {
+  schemaVersion: string;
+  exportedAt: string;
+  account: CustomerAccount;
+  consents: { consentType: string; policyVersion: string; consentedAt: string }[];
+  teacherProfile?: TeacherProfile | null;
+  posts: UserPost[];
+  demands: Demand[];
+  receivedApplications: { applyId: number; demandId: number; status: string; message?: string | null }[];
+  sentApplications: { applyId: number; demandId: number; status: string; message?: string | null }[];
+  truncated: boolean;
+}
+
+/**
+ * GET /customer/auth/export —— 导出本人数据（行使查阅/可携带权）
+ *
+ * 只返回本人的账号、同意记录、简历、帖子、需求与申请；不含他人的个人信息。
+ * 调用方负责把它变成文件下载。
+ */
+export function exportMyData() {
+  return reqData<CustomerDataExport>({ url: url('/auth/export'), method: 'get' });
+}
+
 /**
  * GET /customer/auth/me —— 当前账号（用已有 token 换取）。
  * 返回 null 表示后端没给出可用账号信息，调用方按「未登录」处理。

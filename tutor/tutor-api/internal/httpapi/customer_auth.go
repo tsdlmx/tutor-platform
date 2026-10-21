@@ -122,6 +122,20 @@ func (a *API) deleteMyAccount(w http.ResponseWriter, r *http.Request, session *i
 	writeSuccess(w, "账号已注销", nil)
 }
 
+// exportMyData returns a portable copy of the signed-in customer's own data.
+// Each collection is capped server-side, so the response stays bounded.
+func (a *API) exportMyData(w http.ResponseWriter, r *http.Request, session *identity.Session) {
+	export, err := a.identity.ExportCustomerData(r.Context(), session.Account.AccountID)
+	if err != nil {
+		a.writeBusinessError(w, err)
+		return
+	}
+	// The frontend turns this into a .json download; no response caching is allowed
+	// (the security middleware already sets no-store).
+	w.Header().Set("Content-Disposition", `attachment; filename="tutor-data-export.json"`)
+	writeSuccess(w, "数据已导出", export)
+}
+
 func (a *API) login(w http.ResponseWriter, r *http.Request) {
 	var body loginRequest
 	if !decodeJSON(w, r, &body) {

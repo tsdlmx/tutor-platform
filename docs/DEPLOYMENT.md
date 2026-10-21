@@ -130,7 +130,7 @@ Windows 开发机用 `3b-go-api.bat`（实现是同目录的 `3b-go-api.ps1`）�
 
 ## 5.1 生产部署产物（nginx + systemd）
 
-仓库提供两份可直接落地的配置，替代"`vite preview` 当生产入口 + `setsid nohup` 拉进程"的临时做法：
+仓库提供以下可直接落地的配置，替代"`vite preview` 当生产入口 + `setsid nohup` 拉进程"的临时做法：
 
 | 文件 | 用途 |
 | --- | --- |
@@ -138,6 +138,8 @@ Windows 开发机用 `3b-go-api.bat`（实现是同目录的 `3b-go-api.ps1`）�
 | `deploy/nginx/snippets/tutor-proxy.conf` | 反代公共参数（转发头、超时、`Connection ""`） |
 | `deploy/nginx/snippets/tutor-headers.conf` | 公共安全响应头（见下方注意事项） |
 | `deploy/systemd/tutor-api.service` | 进程守护：`EnvironmentFile` 读密钥、`Restart=always`、`ProtectSystem=strict` 等沙箱项、日志进 journald、`SIGTERM` 优雅退出 |
+| `deploy/logrotate/tutor` | nginx 访问/错误日志按周轮转、保留 26 周（约 6 个月），`postrotate` 让 nginx 重开日志 |
+| `deploy/systemd/journald-tutor.conf` | 服务日志保留：总量上限 2G、单文件 64M、保留 26 周、压缩 |
 
 安装（Ubuntu/Debian 系示例）：
 
@@ -146,6 +148,14 @@ sudo install -d /srv/tutor-web /srv/tutor-api/var /etc/nginx/snippets
 sudo cp -r tutor/tutor-web/dist/* /srv/tutor-web/
 sudo install -m 0644 deploy/nginx/tutor.conf /etc/nginx/conf.d/tutor.conf
 sudo install -m 0644 deploy/nginx/snippets/*.conf /etc/nginx/snippets/
+
+# 日志留存：nginx 侧走 logrotate，服务侧走 journald
+sudo install -d /etc/logrotate.d /etc/systemd/journald.conf.d
+sudo install -m 0644 deploy/logrotate/tutor /etc/logrotate.d/tutor
+sudo install -m 0644 deploy/systemd/journald-tutor.conf /etc/systemd/journald.conf.d/tutor.conf
+sudo logrotate -d /etc/logrotate.d/tutor     # 演练，确认能解析
+sudo systemctl restart systemd-journald
+
 sudo install -m 0644 deploy/systemd/tutor-api.service /etc/systemd/system/
 
 # 配置里的 tutor.example.com 与证书路径要换成自己的
@@ -166,7 +176,7 @@ journalctl -u tutor-api -f
 
 验证情况（详见 `docs/VERIFICATION-RESULTS.md`）：`nginx -t` 用 nginx 1.30.6 通过；实际拉起 nginx + 假上游后 13 项功能检查全部通过（跳转、5 个安全头、CSP 内容、SPA 兜底、`index.html` 不缓存、两个前缀剥离开关转发、登录限流返回 503）；`systemd-analyze verify` 通过（只剩"二进制尚未安装"这一预期提示）。
 
-仍需部署方补齐：证书签发（Let's Encrypt 或企业 CA）、`server_name` 与证书路径替换、`logrotate`/journald 保留期、`/srv/tutor-web` 的发版方式（当前脚本仍用 `vite preview`，切到 nginx 后 `4-web.sh` 只负责构建与拷贝 dist）。
+仍需部署方补齐：证书签发（Let's Encrypt 或企业 CA）、`server_name` 与证书路径替换、`/srv/tutor-web` 的发版方式（当前脚本仍用 `vite preview`，切到 nginx 后 `4-web.sh` 只需构建并拷贝 dist）。
 
 手工部署时等价步骤如下：
 
@@ -242,7 +252,7 @@ SKIP_AUDIT=1 bash scripts/verify.sh # 无外网时跳过依赖审计
 ## 10. 尚未覆盖
 
 - 已提供 nginx 站点配置与 systemd 单元（§5.1），但仓库内的启动脚本仍是 `setsid nohup` + pid 文件的方式（无开机自启/崩溃拉起）；生产应改用 §5.1 的 systemd 单元，Windows 侧（`3b-go-api.bat`）同样只是隐藏窗口进程。
-- Go 进程的日志由 `data/logs/go-api.log` 收集，未接入日志轮转；生产需配 logrotate 或日志采集。
+- `bin-linux` 脚本把 Go 日志写到 `data/logs/go-api.log`，不轮转；生产应改用 §5.1 的 systemd 单元（日志进 journald，配合 `deploy/systemd/journald-tutor.conf` 的保留策略）。
 - `vite preview` 不是加固的生产入口：没有 HTTP/2、连接限流与细粒度访问控制。§5.1 的 nginx 配置已验证可用，上线前应切换过去。
 - 服务监控页已由 Go 提供（宿主机指标 + Go 运行时 + 数据库连接池）；Java 的缓存监控接口没有 React 页面调用，未迁移。
 - 迁移与核心链路已在 PostgreSQL 16.2 上实测通过（见 `docs/VERIFICATION-RESULTS.md`）；`cmd/import-legacy` 对真实 MySQL 的预检与导入尚未验证，首次部署仍必须先在预发库跑一次预检并核对行数。

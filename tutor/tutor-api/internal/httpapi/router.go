@@ -77,6 +77,7 @@ func New(logger *slog.Logger, db *gorm.DB, redisClient *redis.Client, jwtSecret 
 	mux.HandleFunc("PUT /customer/auth/role", a.customerAuth(a.setRole))
 	mux.HandleFunc("POST /customer/auth/logout", a.customerAuth(a.logout))
 	mux.HandleFunc("POST /customer/auth/delete-account", a.customerAuth(a.deleteMyAccount))
+	mux.HandleFunc("GET /customer/auth/export", a.customerAuth(a.exportMyData))
 	mux.HandleFunc("GET /customer/subjects", a.subjects)
 	mux.HandleFunc("GET /customer/demands", a.customerAuth(a.listDemands))
 	mux.HandleFunc("GET /customer/demands/stats", a.customerAuth(a.demandStats))

@@ -1,0 +1,29 @@
+# 家教中介平台 —— nginx 访问/错误日志轮转
+#
+# 安装：sudo install -m 0644 deploy/logrotate/tutor /etc/logrotate.d/tutor
+# 检查：sudo logrotate -d /etc/logrotate.d/tutor      （-d = 只演练不落盘）
+#
+# 保留 26 周 ≈ 6 个月，满足等保对审计/日志留存的最低要求（见 docs/DEPLOYMENT.md §7）。
+# 注意：与应用侧的审计表（sys_login_audit / sys_oper_log）是两条独立链路，
+# 数据库审计的归档见 docs/DEPLOYMENT.md 里的 SQL 示例。
+
+/var/log/nginx/tutor.access.log /var/log/nginx/tutor.error.log {
+    weekly
+    rotate 26
+    missingok
+    notifempty
+    compress
+    delaycompress
+    dateext
+    dateformat -%Y%m%d
+    create 0640 www-data adm
+    sharedscripts
+    postrotate
+        # 让 nginx 重新打开日志文件；不存在 systemd 时退回信号方式
+        if [ -d /run/systemd/system ]; then
+            systemctl reload nginx >/dev/null 2>&1 || true
+        elif [ -s /run/nginx.pid ]; then
+            kill -USR1 "$(cat /run/nginx.pid)" 2>/dev/null || true
+        fi
+    endscript
+}

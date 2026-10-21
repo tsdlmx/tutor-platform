@@ -102,6 +102,28 @@ export function CustomerLayout() {
     navigate('/', { replace: true });
   }
 
+  /** 导出本人数据（行使查阅/可携带权）：下载一个 JSON 文件，不含他人信息 */
+  async function handleExportData() {
+    setMenuOpen(false);
+    try {
+      const data = await customerApi.exportMyData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `tutor-data-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast.success('数据已导出', {
+        description: data.truncated ? '记录较多，导出内容已按上限截断' : '请查看浏览器下载的 JSON 文件',
+      });
+    } catch (err) {
+      toast.error('导出失败', { description: err instanceof Error ? err.message : '请稍后重试' });
+    }
+  }
+
   /** 注销账号（行使删除权）：删除账号与本人简历、帖子、需求、申请，不可恢复 */
   async function handleDeleteAccount() {
     if (deleting) return;
@@ -193,6 +215,9 @@ export function CustomerLayout() {
                   <DropdownMenuItem onSelect={() => void handleLogout()}>
                     <LogOut className="mr-2 h-3.5 w-3.5" />
                     退出登录
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void handleExportData()}>
+                    导出我的数据
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => {
