@@ -1,13 +1,13 @@
 # Tutor Web API (Go)
 
-Go API for the existing React Web client. It runs beside the legacy Java service so routes can move in small, reviewable slices without changing the UI.
+Go API for the React Web client (admin console + customer H5). It is the only backend: the legacy Java service was removed from `main` and is kept in tag `legacy-java-final` for rollback only.
 
 ## Current status
 
 - Go `net/http` server, GORM persistence, explicit PostgreSQL migrations, and Redis integration.
 - The Web API owns administrator authentication: `GET /captchaImage`, `POST /login`, `GET /getInfo`, and `POST /logout` run in Go. Go signs the HS512 token, keeps the session in Redis under `login_tokens:<id>`, and reloads the account, roles, and menu permissions from PostgreSQL on every authenticated request. The stored session keeps the legacy field names so the online-session view reads the same record without a translation layer.
 - Customer Web routes, the read-only miniapp login-state check, and the admin slices are served by Go: scoped system-user and role lists, online-session listing and force logout, tutor review/list/detail/delete, customer account lookup/status, post moderation, read-only historical WeChat user lookup, the operation-log API, the login-audit listing, and service monitoring.
-- Still on Java: system-user and role detail/edit, department, menu, dictionary, configuration, notice, and post. No React screen calls them any more — the screens are read-only lists served entirely by Go, and the API wrappers for the unused modules were removed. The miniapp business APIs still run on Java. The legacy cache-monitoring endpoints are not migrated because no React screen calls them.
+- Not implemented anywhere: system-user and role detail/edit, department, menu, dictionary, configuration, notice, post, file upload, WeChat login, and the miniapp business APIs. No React screen calls them, so they were dropped together with the Java modules; the cache-monitoring endpoints are likewise gone.
 - Go records authenticated admin requests in structured service logs. Migrated admin writes and their audit rows commit in one PostgreSQL transaction. The operation-log screen now reads the Go endpoint, which lists safe imported metadata plus actions performed in Go; request bodies, response bodies, and error details are excluded. Only the final MySQL log snapshot still has to be imported at cutover so pre-migration rows stay visible.
 
 ## Administrator authentication
@@ -17,7 +17,7 @@ Go API for the existing React Web client. It runs beside the legacy Java service
 - Login settings come from `sys_admin_auth_config`, which holds only the snapshotted `sys.account.captchaEnabled` and `sys.login.blackIPList` keys. An unset or unreadable captcha flag keeps the verification code required.
 - Sessions live 24 hours, matching the legacy `token.expireTime` of 1440 minutes, and are extended on use once less than 20 minutes remain. `POST /logout` deletes the Redis record, so the token stops working immediately.
 - Repeated failed logins are rate limited per client address and username; unknown accounts still run a BCrypt comparison so response time does not reveal which usernames exist.
-- `JWT_SECRET` must contain at least 32 bytes. While any admin screen still calls Java, both services must use the same secret and the same Redis instance and logical database so those screens accept the Go-issued token. Once the last Java admin route is migrated the secret no longer has to match.
+- `JWT_SECRET` must contain at least 32 bytes. It only signs tokens for this service now, so it no longer has to match any other system.
 
 ## Configuration
 
@@ -59,7 +59,7 @@ go run ./cmd/server
 
 Audit records are append-only in the application: there is deliberately no endpoint to edit, delete, or clear `sys_login_audit` or `sys_oper_log`. Retention and archiving are an operator task (see `docs/DEPLOYMENT.md`).
 
-The React clients call `/web-api` for customer Web and `/admin-api` for administrator authentication and every migrated admin API. Vite proxies both. The client no longer has a default backend prefix: a request that omits `baseURL` fails against the site origin instead of silently reaching the retired Java service, which is why the production bundle contains no `/dev-api` or `/prod-api` string. The `/dev-api` proxy stays configured only for the miniapp transition; production reverse proxies must route `/web-api` and `/admin-api` to Go.
+The React clients call `/web-api` for customer Web and `/admin-api` for administrator authentication and every migrated admin API. Vite proxies both. The client no longer has a default backend prefix: a request that omits `baseURL` fails against the site origin instead of silently reaching the retired Java service, which is why the production bundle contains no `/dev-api` or `/prod-api` string. There is no `/dev-api` proxy any more: it had no consumers once the Java modules were removed. Production reverse proxies only need to route `/web-api` and `/admin-api` to Go.
 
 `GET /monitor/server` reports this process instead of the JVM: host CPU/memory/disk through `gopsutil`, the Go runtime block (version, uptime, goroutines, GC count, heap), and the database pool counters. It requires `monitor:server:list`. Host metrics are best-effort — a restricted container may hide them and the response then carries zeroed values rather than failing the request.
 

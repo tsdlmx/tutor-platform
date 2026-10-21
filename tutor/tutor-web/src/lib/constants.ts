@@ -19,7 +19,7 @@ export const THEME_KEY = 'tutor-theme';
  */
 export const CUSTOMER_TOKEN_KEY = 'tutor_customer_token';
 
-/** 客户侧接口统一前缀（前端经 /dev-api 代理访问 /customer/**） */
+/** 客户侧接口统一前缀（前端经 /web-api 代理访问 /customer/**） */
 export const CUSTOMER_API_PREFIX = '/customer';
 
 /** 登录后默认跳转 */
@@ -193,7 +193,7 @@ export function resolveAssetUrl(url?: string | null): string | undefined {
   if (!u) return undefined;
   if (/^(https?:)?\/\//i.test(u) || u.startsWith('data:') || u.startsWith('blob:')) return u;
   if (u.startsWith('/src/') || u.startsWith('/assets/')) return u;
-  // 后端静态资源（/profile/**）已经 permitAll，但不在 /dev-api 代理下，直连 8080
+  // 后端静态资源（/profile/**）不在本仓库实现（上传能力已随 Java 删除），留空走同源
   const base = (import.meta.env.VITE_ASSET_BASE_URL as string | undefined) ?? '';
   return `${base}${u}`;
 }

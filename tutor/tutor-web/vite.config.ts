@@ -45,8 +45,6 @@ function securityHeaders() {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, rootDir, '');
   const apiBase = env.VITE_API_BASE_URL || '';
-  const proxyPrefix = env.VITE_PROXY_PREFIX || '/dev-api';
-  const proxyTarget = env.VITE_PROXY_TARGET || 'http://localhost:18080';
   const webApiProxyPrefix = env.VITE_WEB_API_PROXY_PREFIX || '/web-api';
   const webApiProxyTarget = env.VITE_WEB_API_PROXY_TARGET || 'http://127.0.0.1:12501';
   const adminApiProxyPrefix = env.VITE_ADMIN_API_PROXY_PREFIX || '/admin-api';
@@ -74,14 +72,8 @@ export default defineConfig(({ mode }) => {
       : undefined;
 
   // 开发（vite dev）和预览（vite preview）用同一套代理规则，避免两处不一致
+  // 所有客户端接口都在 Go 服务上；/dev-api 已无消费者，不再配置代理。
   const proxy = {
-    [proxyPrefix]: {
-      target: proxyTarget,
-      changeOrigin: true,
-      xfwd: true,
-      rewrite: (p: string) => p.replace(new RegExp(`^${proxyPrefix}`), ''),
-    },
-    // Customer and migrated admin APIs run on Go; remaining admin routes stay on Java.
     [webApiProxyPrefix]: {
       target: webApiProxyTarget,
       changeOrigin: true,

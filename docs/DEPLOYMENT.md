@@ -74,12 +74,9 @@ VITE_ADMIN_API_PROXY_PREFIX=/admin-api
 VITE_ADMIN_API_PROXY_TARGET=http://127.0.0.1:12501
 # 隐私政策与用户协议的公开地址（注册页勾选同意时链接到此）；上线前必须发布并配置
 VITE_PRIVACY_POLICY_URL=https://<你的域名>/privacy
-# /dev-api 已无消费者；如无历史包袱可整段删除
-VITE_PROXY_PREFIX=/dev-api
-VITE_PROXY_TARGET=http://127.0.0.1:12501
 ```
 
-构建后可用 `grep -R "/dev-api" dist/assets` 自检：已迁移彻底时产物中不应出现该前缀。
+构建后可用 `grep -R "/dev-api" dist/assets` 自检：产物中不应出现该前缀（`scripts/verify.sh` 也会检查）。
 
 ## 4. 数据库权限
 
@@ -241,7 +238,8 @@ Java 后端已删除，但 MySQL 里的历史数据仍在。导入流程：
 
 ```bash
 git checkout legacy-java-final           # 或者基于 tag 开分支
-# 需要重新构建 tutor-admin.jar，并恢复 3-backend.sh / 3-backend.bat
+# 以下步骤只适用于 checkout 出 tag 之后的工作区；main 上没有这些脚本。
+# 需要重新构建 tutor-admin.jar，并恢复 3-backend.sh / 3-backend.bat。
 ```
 
 回滚前必须评估：切换后写入 PostgreSQL 的数据**不会**回流 MySQL，这段时间的业务写入要么接受丢失，要么手工补录。
