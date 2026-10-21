@@ -17,15 +17,19 @@ SQL_DIR="$ROOT/tutor/sql"
 
 (exec 3<>/dev/tcp/127.0.0.1/$MYSQL_PORT) 2>/dev/null || { echo "  [失败] MySQL($MYSQL_PORT) 未运行，请先执行 1-mysql.sh"; exit 1; }
 
-# 首次初始化后 root 无密码，这里统一设置成 1234（与原 application-druid.yml 一致）
-if "$MYSQL_BIN" -h 127.0.0.1 -P "$MYSQL_PORT" -u root -p1234 -e 'SELECT 1' >/dev/null 2>&1; then
-  echo "  [就绪] root 密码已是 1234"
+# 首次初始化后 root 无密码；这里把它设成 MYSQL_ROOT_PASSWORD（data/secrets.env 可覆盖）
+if "$MYSQL_BIN" -h 127.0.0.1 -P "$MYSQL_PORT" -u root -p"$MYSQL_ROOT_PASSWORD" -e 'SELECT 1' >/dev/null 2>&1; then
+  echo "  [就绪] root 密码已设置"
 else
-  echo "  [设置] 首次运行：为 root 设置密码 1234"
+  echo "  [设置] 首次运行：为 root 设置密码（取 MYSQL_ROOT_PASSWORD）"
+  if [ -z "${MYSQL_ROOT_PASSWORD:-}" ]; then
+    echo "  [失败] MYSQL_ROOT_PASSWORD 为空；请在 data/secrets.env 或环境变量里提供"
+    exit 1
+  fi
   # 注意：这里不能用 `if ! cmd | tail`，管道的退出码是 tail 的，会漏掉真正的失败
   PW_OUT=$("$MYSQL_BIN" -h 127.0.0.1 -P "$MYSQL_PORT" -u root --skip-password -e "
-        ALTER USER 'root'@'localhost' IDENTIFIED WITH caching_sha2_password BY '1234';
-        CREATE USER IF NOT EXISTS 'root'@'127.0.0.1' IDENTIFIED WITH caching_sha2_password BY '1234';
+        ALTER USER 'root'@'localhost' IDENTIFIED WITH caching_sha2_password BY '$MYSQL_ROOT_PASSWORD';
+        CREATE USER IF NOT EXISTS 'root'@'127.0.0.1' IDENTIFIED WITH caching_sha2_password BY '$MYSQL_ROOT_PASSWORD';
         GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION;
         FLUSH PRIVILEGES;" 2>&1)
   PW_RC=$?
@@ -36,7 +40,7 @@ else
   fi
 fi
 
-MYSQL="$MYSQL_BIN -h 127.0.0.1 -P $MYSQL_PORT -u root -p1234 --default-character-set=utf8mb4"
+MYSQL="$MYSQL_BIN -h 127.0.0.1 -P $MYSQL_PORT -u root -p"$MYSQL_ROOT_PASSWORD" --default-character-set=utf8mb4"
 
 echo "  [建库] CREATE DATABASE IF NOT EXISTS tutor"
 $MYSQL -e "CREATE DATABASE IF NOT EXISTS tutor DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;" 2>&1 | grep -v 'Using a password' || true

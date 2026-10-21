@@ -220,7 +220,9 @@ Go 服务（`data/go-api.env`，不入库）：
 | `SMTP_*` | 否 | 未配置时注册/找回验证码返回 503（安全失败） |
 | `LEGACY_MYSQL_DSN` | 否 | 仅 `cmd/import-legacy` 使用，必须是只读账号 |
 
-前端构建期变量：`VITE_CUSTOMER_API_BASE_URL`、`VITE_WEB_API_PROXY_*`、`VITE_ADMIN_API_PROXY_*`、`VITE_PRIVACY_POLICY_URL`、`VITE_ASSET_BASE_URL`、`VITE_USE_MOCK`。
+本地启动脚本（`bin-linux/*.sh`、根目录 `*.bat`）的敏感值放 `data/secrets.env`，可覆盖 `MYSQL_ROOT_PASSWORD`、`REDIS_PASSWORD`、`PUBLIC_IP`、`TLS_HOST`、`SECRETS_DIR`、`REDIS_PASSWORD_FILE`。脚本里只保留本地开发默认值（如 MySQL 口令），**生产必须用 secrets.env 或同名环境变量覆盖**；`PUBLIC_IP` 未设置时脚本不打印公网地址，`7-tls-cert.sh` 会要求显式提供。
+
+前端构建期变量：`VITE_CUSTOMER_API_BASE_URL`、`VITE_WEB_API_PROXY_*`、`VITE_ADMIN_API_PROXY_*`、`VITE_PRIVACY_POLICY_URL`、`VITE_ASSET_BASE_URL`、`VITE_USE_MOCK`，以及可选的 `VITE_TOKEN_KEY` / `VITE_CUSTOMER_TOKEN_KEY` / `VITE_THEME_KEY`（覆盖 localStorage 的 key，用于多站点同域隔离）。
 
 前端**没有默认后端前缀**：每个请求必须显式给 `/web-api` 或 `/admin-api`；漏写会打到同源直接 404。
 

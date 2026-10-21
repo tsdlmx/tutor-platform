@@ -17,7 +17,7 @@ stop_one redis "$REDIS_PORT"
 
 # MySQL 优先用 mysqladmin 优雅关闭（会 flush + 干净落盘）
 if is_running "$PIDS/mysql.pid"; then
-  "$MYSQL_HOME/bin/mysqladmin" -h 127.0.0.1 -P "$MYSQL_PORT" -u root -p1234 shutdown >/dev/null 2>&1 \
+  "$MYSQL_HOME/bin/mysqladmin" -h 127.0.0.1 -P "$MYSQL_PORT" -u root -p"$MYSQL_ROOT_PASSWORD" shutdown >/dev/null 2>&1 \
     && echo "  [停止] MySQL（已优雅关闭）"
   for _ in $(seq 1 30); do
     is_running "$PIDS/mysql.pid" || break

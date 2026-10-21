@@ -94,6 +94,8 @@ Go 服务的包职责：
 ## 7. 配置与本地运行
 
 - Go 服务配置放 `data/go-api.env`（或直接给环境变量），模板是 `tutor/tutor-api/.env.example`。**该文件含真实 `DATABASE_DSN` 与 `JWT_SECRET`，绝不要提交**；`data/` 已在 `.gitignore` 里。
+- 本地脚本的敏感值放 `data/secrets.env`（同样被 `/data/` 忽略），可覆盖：`MYSQL_ROOT_PASSWORD`、`REDIS_PASSWORD`、`PUBLIC_IP`、`TLS_HOST`、`SECRETS_DIR`、`REDIS_PASSWORD_FILE`。**不要在脚本里写死口令、公网 IP 或密钥路径**：脚本只保留开发默认值，生产必须用 secrets.env 或同名环境变量覆盖；`PUBLIC_IP` 为空时所有脚本都不打印公网地址，`7-tls-cert.sh` 会要求显式提供 `TLS_HOST`/`PUBLIC_IP`。
+- 前端 `localStorage` 的 key 也可覆盖：`VITE_TOKEN_KEY`、`VITE_CUSTOMER_TOKEN_KEY`、`VITE_THEME_KEY`（多站点同域部署时用来隔离）。
 - 端口：Go 12501、Web dev 12500、`vite preview` 4173、PostgreSQL 5432、Redis 6379、MySQL 3307（旧数据源）。
 - 启动：Windows `.\3b-go-api.bat`，Linux `bash bin-linux/3b-go-api.sh`（两者读同一份 `data\go-api.env`，有 Go 工具链就编译、先迁移后起服务、最后校验 `/health/ready`）。
 

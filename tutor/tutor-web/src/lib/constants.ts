@@ -9,15 +9,19 @@ export const APP_SUBTITLE = '最后一公里家教预约平台';
  */
 export const ICP_BEIAN = '';
 
-export const TOKEN_KEY = 'tutor-admin-token';
-export const THEME_KEY = 'tutor-theme';
+/**
+ * 登录态在 localStorage 里的 key。可由 VITE_TOKEN_KEY / VITE_CUSTOMER_TOKEN_KEY
+ * 覆盖（多站点同域部署时用来隔离），默认值只是本地开发约定。
+ */
+export const TOKEN_KEY = import.meta.env.VITE_TOKEN_KEY || 'tutor_platform_token';
+export const THEME_KEY = import.meta.env.VITE_THEME_KEY || 'tutor_platform_theme';
 
 /**
  * 客户侧（老师 / 学生）登录态 key —— 必须与后台 token 完全隔离。
- * 客户账号存在 t_customer_account，与若依 sys_user 是两套体系，
+ * 客户账号存在 t_customer_account，与后台管理员（sys_user）是两套体系，
  * 混用 key 会让「登录了客户账号」把管理后台的会话顶掉。
  */
-export const CUSTOMER_TOKEN_KEY = 'tutor_customer_token';
+export const CUSTOMER_TOKEN_KEY = import.meta.env.VITE_CUSTOMER_TOKEN_KEY || 'tutor_customer_token';
 
 /** 客户侧接口统一前缀（前端经 /web-api 代理访问 /customer/**） */
 export const CUSTOMER_API_PREFIX = '/customer';

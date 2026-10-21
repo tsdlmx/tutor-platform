@@ -98,7 +98,11 @@ if ! is_running "$PIDS/web.pid"; then
   exit 1
 fi
 if [ "$WEB_TLS" = "1" ]; then SCHEME=https; else SCHEME=http; fi
-echo "  [提示] 客户侧首页：$SCHEME://127.0.0.1:$WEB_PORT/        公网：$SCHEME://$PUBLIC_IP:$WEB_PORT/"
+if [ -n "${PUBLIC_IP:-}" ]; then
+  echo "  [提示] 客户侧首页：$SCHEME://127.0.0.1:$WEB_PORT/        公网：$SCHEME://$PUBLIC_IP:$WEB_PORT/"
+else
+  echo "  [提示] 客户侧首页：$SCHEME://127.0.0.1:$WEB_PORT/        （未设置 PUBLIC_IP，不打印公网地址）"
+fi
 echo "  [提示] 管理后台：  $SCHEME://127.0.0.1:$WEB_PORT/admin/login  (账号 admin，口令见你的密码管理器)"
 echo "  [提示] 找家教：    $SCHEME://127.0.0.1:$WEB_PORT/tutors"
 if [ "$WEB_TLS" = "1" ]; then

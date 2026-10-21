@@ -38,13 +38,17 @@ cat <<EOF
   H5 移动端        http://127.0.0.1:$WEB_PORT/
   Go API 健康检查  http://127.0.0.1:$GO_API_PORT/health/ready
   接口文档         见 README.md 第二节（无 Swagger）
-  MySQL           127.0.0.1:$MYSQL_PORT  root / 1234  库名 tutor（仅旧数据来源）
-  Redis           127.0.0.1:$REDIS_PORT  （无密码）
-
-  ── 公网访问（需云安全组已放行 $WEB_PORT；Go API 只应被反代访问）──
-  电脑端管理后台   http://$PUBLIC_IP:$WEB_PORT/admin/login
-  H5 移动端        http://$PUBLIC_IP:$WEB_PORT/
+  MySQL           127.0.0.1:$MYSQL_PORT  root / 见 data/secrets.env  库名 tutor（仅旧数据来源）
+  Redis           127.0.0.1:$REDIS_PORT  （口令取 REDIS_PASSWORD，见 data/secrets.env）
 
   日志目录         $LOGS
   停止全部         bash $DIR/9-stop-all.sh
 EOF
+
+# 公网地址只在显式配置 PUBLIC_IP 时提示（data/secrets.env 或环境变量）
+if [ -n "${PUBLIC_IP:-}" ]; then
+  echo
+  echo "  ── 公网访问（需云安全组已放行 $WEB_PORT；Go API 只应被反代访问）──"
+  echo "  电脑端管理后台   http://$PUBLIC_IP:$WEB_PORT/admin/login"
+  echo "  H5 移动端        http://$PUBLIC_IP:$WEB_PORT/"
+fi

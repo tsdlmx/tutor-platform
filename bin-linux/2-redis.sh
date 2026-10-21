@@ -24,4 +24,8 @@ if ! wait_port 127.0.0.1 "$REDIS_PORT" 30 "Redis 127.0.0.1:$REDIS_PORT"; then
   exit 1
 fi
 is_running "$PIDS/redis.pid" || { echo "  [失败] Redis 进程已退出"; tail -20 "$LOGS/redis.log"; exit 1; }
-echo "  [提示] 自检：$REDIS_HOME/bin/redis-cli -a <redis 口令，见 ~/.dsh/secrets/tutor-admin.txt> ping  →  PONG"
+if [ -n "${REDIS_PASSWORD:-}" ]; then
+  echo "  [提示] 自检：$REDIS_HOME/bin/redis-cli -a \"\$REDIS_PASSWORD\" ping  →  PONG（口令取 REDIS_PASSWORD / data/secrets.env）"
+else
+  echo "  [提示] 自检：$REDIS_HOME/bin/redis-cli ping  →  PONG（未设置 REDIS_PASSWORD；口令文件可放 $REDIS_PASSWORD_FILE）"
+fi

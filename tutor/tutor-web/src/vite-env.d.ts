@@ -11,6 +11,10 @@ interface ImportMetaEnv {
   readonly VITE_ASSET_BASE_URL?: string;
   /** 隐私政策与用户协议的公开地址，供注册页链接；未配置时页面只显示文字 */
   readonly VITE_PRIVACY_POLICY_URL?: string;
+  /** 登录态与主题在 localStorage 里的 key，可按部署覆盖 */
+  readonly VITE_TOKEN_KEY?: string;
+  readonly VITE_CUSTOMER_TOKEN_KEY?: string;
+  readonly VITE_THEME_KEY?: string;
   readonly VITE_USE_MOCK?: string;
 }
 

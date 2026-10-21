@@ -29,6 +29,26 @@ if [ -f "$DATA/mail.env" ]; then
   set +a
 fi
 
+# 本机密钥：data/secrets.env（不存在就跳过）。优先于环境变量的默认值，
+# 因此生产部署把真实口令写在这里（或直接导出同名环境变量），不要改脚本。
+#   MYSQL_ROOT_PASSWORD / REDIS_PASSWORD / PUBLIC_IP / SECRETS_DIR / REDIS_PASSWORD_FILE
+if [ -f "$DATA/secrets.env" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$DATA/secrets.env"
+  set +a
+fi
+
+# 下面这些变量都可由 data/secrets.env 或同名环境变量覆盖；
+# 括号里的值只是本地开发默认值，生产必须覆盖。
+MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-1234}"
+REDIS_PASSWORD="${REDIS_PASSWORD:-}"
+# 密钥/口令文件的搜索目录（脚本只用来打印提示，不自动读取这里的文件）
+SECRETS_DIR="${SECRETS_DIR:-$HOME/.dsh/secrets}"
+REDIS_PASSWORD_FILE="${REDIS_PASSWORD_FILE:-$SECRETS_DIR/redis-password.txt}"
+# 公网地址：留空则所有脚本不打印公网访问行（自签证书脚本会要求显式提供）
+PUBLIC_IP="${PUBLIC_IP:-}"
+
 # .deb 解出来的共享库（liblzf / libjemalloc / libevent / libprotobuf-lite）
 export LD_LIBRARY_PATH="$RUNTIME/opt/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
@@ -44,7 +64,7 @@ export LC_ALL="${LC_ALL:-C.UTF-8}"
 #   MySQL 3307 —— 仅作旧数据来源（只监听本机/内网，不对公网开放）
 #   Redis 6379 —— 只监听 127.0.0.1
 #   Go API 12501 / 前端 12500 —— 这两个是**对公网开放**的端口，
-#   需要在云厂商安全组里放行；公网地址见 PUBLIC_IP。
+#   需要在云厂商安全组里放行；公网地址见 PUBLIC_IP（未设置则不打印）。
 MYSQL_PORT=3307
 REDIS_PORT=6379
 WEB_PORT=12500
@@ -52,9 +72,6 @@ WEB_PORT=12500
 # Go Web API（bin-linux/3b-go-api.sh），配置来自 data/go-api.env
 GO_API_PORT="${GO_API_PORT:-12501}"
 PG_PORT="${PG_PORT:-5432}"
-
-# 本机公网 IP（腾讯云 NAT，网卡上只有内网 10.2.0.9）
-PUBLIC_IP="${PUBLIC_IP:-82.156.178.102}"
 
 MYSQL_SOCKET="$DATA/mysql.sock"
 

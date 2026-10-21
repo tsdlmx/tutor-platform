@@ -1,4 +1,4 @@
-﻿家教中介平台 —— 当前版本快速上手（Go 单后端）
+家教中介平台 —— 当前版本快速上手（Go 单后端）
 ================================================================
 
 【技术构成】
@@ -22,8 +22,12 @@
      Linux 为 bash bin-linux/0-start-all.sh / bash bin-linux/9-stop-all.sh。
 
 【注意】
-  data\ 目录存放本机运行时配置与密钥（含真实 DATABASE_DSN、JWT_SECRET），
-  已被 .gitignore 排除：绝不提交，也不要拷到共享目录或写进文档。
+  data\ 目录存放本机运行时配置与密钥，已被 .gitignore 排除：绝不提交，
+  也不要拷到共享目录或写进文档。可覆盖的变量：
+    data\go-api.env     Go 服务配置（DATABASE_DSN、JWT_SECRET、REDIS_ADDR 等）
+    data\secrets.env    脚本用敏感值（MYSQL_ROOT_PASSWORD、REDIS_PASSWORD、
+                        PUBLIC_IP、TLS_HOST 等）
+  不要在脚本里写死口令或地址，用这两个文件覆盖。
 
 【更多资料】
   本文件只作快速上手。JSON 接口清单、已实现功能与边界、配置项说明，

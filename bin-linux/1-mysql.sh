@@ -35,4 +35,4 @@ if ! wait_port 127.0.0.1 "$MYSQL_PORT" 90 "MySQL 127.0.0.1:$MYSQL_PORT"; then
   tail -30 "$LOGS/mysql-error.log" 2>/dev/null || tail -30 "$LOGS/mysql.log"
   exit 1
 fi
-echo "  [提示] 客户端：$MYSQL_HOME/bin/mysql -h 127.0.0.1 -P $MYSQL_PORT -u root -p1234"
+echo "  [提示] 客户端：$MYSQL_HOME/bin/mysql -h 127.0.0.1 -P $MYSQL_PORT -u root -p"$MYSQL_ROOT_PASSWORD""

@@ -2,8 +2,8 @@
 # ============================================================================
 # 7) 生成 / 更换站点 TLS 证书（HTTPS）
 # ----------------------------------------------------------------------------
-# 现状：这台机器没有域名，只有公网 IP（82.156.178.102），而 Let's Encrypt 等
-# 公共 CA **不给裸 IP 签证书**，所以这里生成的是「自签证书」：
+# 现状：这台机器没有域名，只有公网 IP（从 TLS_HOST / PUBLIC_IP 读，未设置会报错），
+# 而 Let's Encrypt 等公共 CA **不给裸 IP 签证书**，所以这里生成的是「自签证书」：
 #   ✅ 传输是加密的（抓包看不到内容）
 #   ⚠️  浏览器首次访问会提示「证书不受信任」，需要点「继续前往」，
 #      或把 data/tls/server.crt 导入系统的「受信任根证书」后就没有提示。
@@ -30,6 +30,15 @@ source "$DIR/_common.sh"
 TLS_DIR="$DATA/tls"
 mkdir -p "$TLS_DIR"
 
+# 自签证书要把访问用到的 IP/域名写进 SAN。取 TLS_HOST，其次 PUBLIC_IP；
+# 都没设置就报错，不再内置任何默认地址。
+TLS_HOST="${TLS_HOST:-${PUBLIC_IP:-}}"
+if [ -z "$TLS_HOST" ]; then
+  echo "  [失败] 需要 TLS_HOST 或 PUBLIC_IP 才能生成证书的 SAN"
+  echo "         请在 data/secrets.env 或环境变量里设置后重试"
+  exit 1
+fi
+
 FORCE="${1:-}"
 if [ -f "$TLS_DIR/server.crt" ] && [ -f "$TLS_DIR/server.key" ] && [ "$FORCE" != "--force" ]; then
   echo "  [跳过] 证书已存在：$TLS_DIR/server.crt（要重新生成：bash bin-linux/7-tls-cert.sh --force）"
@@ -46,7 +55,7 @@ x509_extensions    = v3_ext
 C  = CN
 O  = Tutor Platform
 OU = Self-signed
-CN = $PUBLIC_IP
+CN = $TLS_HOST
 
 [v3_ext]
 basicConstraints = critical, CA:FALSE
@@ -55,7 +64,7 @@ extendedKeyUsage = serverAuth
 subjectAltName   = @san
 
 [san]
-IP.1  = $PUBLIC_IP
+IP.1  = $TLS_HOST
 IP.2  = 127.0.0.1
 DNS.1 = localhost
 CNF
@@ -64,7 +73,7 @@ CNF
     -config "$TLS_DIR/openssl.cnf" -extensions v3_ext >/dev/null 2>&1
   chmod 600 "$TLS_DIR/server.key"
   chmod 644 "$TLS_DIR/server.crt"
-  echo "  [生成] 自签证书：$TLS_DIR/server.crt（825 天有效，SAN 含 $PUBLIC_IP / 127.0.0.1 / localhost）"
+  echo "  [生成] 自签证书：$TLS_DIR/server.crt（825 天有效，SAN 含 $TLS_HOST / 127.0.0.1 / localhost）"
 fi
 
 echo
@@ -75,4 +84,4 @@ echo "=== 指纹（导入「受信任根证书」时用来核对）==="
 openssl x509 -in "$TLS_DIR/server.crt" -noout -fingerprint -sha256 | sed 's/^/  /'
 echo
 echo "  [提示] 改完证书重启前端：bash bin-linux/4-web.sh"
-echo "  [提示] 访问地址：https://$PUBLIC_IP:$WEB_PORT/"
+echo "  [提示] 访问地址：https://$TLS_HOST:$WEB_PORT/"
